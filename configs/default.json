@@ -1,0 +1,60 @@
+{
+    "features": [
+    ],
+    "cat_features": [
+    ],
+    "target": "",
+    "lgbm_params": {
+        "boosting_type": "gbdt",
+        "objective": "multiclass",
+        "num_class": 6,
+        "metric": "multi_logloss",
+        "learning_rate": 0.03,
+        "verbose": -1,
+        "nthread": -1,
+        "seed": 42
+    },
+    "catboost_params": {
+        "iterations": 50000,
+        "loss_function": "Logloss",
+        "depth": 10,
+        "learning_rate": 0.01,
+        "l2_leaf_reg": 1.451418104923018,
+        "eval_metric": "Accuracy",
+        "random_strength":  51.37597327351933,
+        "verbose": 0,
+        "thread_count": -1,
+        "random_seed": 0
+    },
+    "catboost_cat_features": [
+    ],
+    "svm_params": {
+        "kernel": "rbf",
+        "gamma": 0.09591603896581512,
+        "C": 1.9048450023136225
+    },
+    "rf_params": {
+        "criterion": "mse",
+        "n_estimators": 667,
+        "max_depth": 10,
+        "min_samples_split": 3,
+        "min_samples_leaf": 2,
+        "max_features": "auto",
+        "random_state": 42,
+        "n_jobs": -1,
+        "verbose": 0
+    },
+    "mlp_params": {
+        "num_layers": 2,
+        "dropout_rates": [0.4, 0.4],
+        "num_units": [500, 500],
+        "batch_size": 32,
+        "learning_rate": 0.0005,
+        "verbose": 2
+    },
+    "box_cox": {
+        "lmbda": {
+            "": 0.44515133117797134 
+        }
+    }
+}
