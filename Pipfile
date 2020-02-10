@@ -16,6 +16,9 @@ tensorflow = "==1.12.0"
 optuna = "*"
 jupyter = "*"
 seaborn = "*"
+catboost = "*"
+xgboost = "*"
+lightgbm = "*"
 
 [requires]
 python_version = "3.6"
