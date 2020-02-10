@@ -9,7 +9,7 @@
         "objective": "multiclass",
         "num_class": 6,
         "metric": "multi_logloss",
-        "learning_rate": 0.03,
+        "learning_rate": 0.05,
         "verbose": -1,
         "nthread": -1,
         "seed": 42
