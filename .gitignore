@@ -180,3 +180,4 @@ dmypy.json
 # Other directories to ignore
 data
 logs/*
+features
