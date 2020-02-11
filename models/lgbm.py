@@ -71,10 +71,12 @@ def load_data():
     idx_train = y_train[y_train[0].isin(class_ids_inc)].index
     X_train = X_train.iloc[idx_train].reset_index(drop=True)
     y_train = y_train.iloc[idx_train].reset_index(drop=True)
+    subject_id_train = subject_id_train.iloc[idx_train].reset_index(drop=True)
 
     idx_test = y_test[y_test[0].isin(class_ids_inc)].index
     X_test = X_test.iloc[idx_test].reset_index(drop=True)
     y_test = y_test.iloc[idx_test].reset_index(drop=True)
+    subject_id_test = subject_id_test.iloc[idx_test].reset_index(drop=True)
 
     # Replace 6 to 0
     rep_activity = label2activity_dict[6]
@@ -104,10 +106,11 @@ for c, mode in zip([Counter(y_train.values.flatten()), Counter(y_test.values.fla
     print()
 
 # Split data by preserving the percentage of samples for each class.
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=71)
+n_splits = 10
+cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=71)
 valid_preds = np.zeros((X_train.shape[0], 6))
-test_preds = np.zeros((5, X_test.shape[0], 6))
-importances = np.zeros((5, X_train.shape[1]))
+test_preds = np.zeros((n_splits, X_test.shape[0], 6))
+importances = np.zeros((n_splits, X_train.shape[1]))
 score_list = {
     'logloss': {'train': [], 'valid': [], 'test': []},
     'accuracy': {'train': [], 'valid': [], 'test': []},
