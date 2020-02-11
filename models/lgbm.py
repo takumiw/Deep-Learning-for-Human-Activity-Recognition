@@ -99,8 +99,8 @@ for c, mode in zip([Counter(y_train.values.flatten()), Counter(y_test.values.fla
     print(f'{mode} samples')
     logging.debug(f'{mode} samples')
     for label_id in range(6):
-        print(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]}', end='\t')
-        logging.debug(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]}')
+        print(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]} ({c[label_id]/len(c):.04})', end='\t')
+        logging.debug(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]} ({c[label_id]/len(c):.04})')
     print()
 
 # Split data by preserving the percentage of samples for each class.
@@ -152,12 +152,8 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
     score_list['logloss']['train'].append(model.best_score['training']['multi_logloss'])
     score_list['logloss']['valid'].append(model.best_score['valid_1']['multi_logloss'])
     score_list['logloss']['test'].append(log_loss(y_test, pred_test))
-    print(score_list['logloss'])
-    print(log_loss(y_tr, pred_tr))
-    print(log_loss(y_val, pred_val))
 
     for pred, y, mode in zip([pred_tr, pred_val, pred_test], [y_tr, y_val, y_test], ['train', 'valid', 'test']):
-        # pred = (pred > 0.5).astype(int)
         pred = pred.argmax(axis=1)
         acc = accuracy_score(y, pred)
         prec = precision_score(y, pred, average='macro')
@@ -169,7 +165,8 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
         score_list['recall'][mode].append(recall)
         score_list['f1'][mode].append(f1)
 
-        logging.debug(f'confusion matrix-{mode}\n{np.array2string(confusion_matrix(y, pred))}')
+        print(f'{mode} confusion matrix\n{np.array2string(confusion_matrix(y, pred))}')
+        logging.debug(f'{mode} confusion matrix\n{np.array2string(confusion_matrix(y, pred))}')
     
 
 print('---Cross Validation Scores---')
@@ -186,8 +183,8 @@ importance = np.mean(importances, axis=0)
 importance_df = pd.DataFrame({'Feature': X_train.columns, 'Value': importance})
 
 plt.figure(figsize=(16, 10))
-sns.barplot(x="Value", y="Feature", data=importance_df.sort_values(by="Value", ascending=False)[:20])
-plt.title('LightGBM Top 20 Feature Importance (avg over folds)')
+sns.barplot(x="Value", y="Feature", data=importance_df.sort_values(by="Value", ascending=False)[:30])
+plt.title('LightGBM Top 30 Feature Importance (avg over folds)')
 plt.tight_layout()
 plt.savefig(f'../features/importances/{EXEC_TIME}.png')
 
