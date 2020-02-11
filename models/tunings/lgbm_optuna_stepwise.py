@@ -138,7 +138,7 @@ class OptunaStepwise():
         return self.cross_validate(params)
     
 
-    def obj5(trial):
+    def obj5(self, trial):
         """
         5. Tuning max_bin
         max_bin: default 255, max_bin > 1
@@ -150,7 +150,7 @@ class OptunaStepwise():
         return self.cross_validate(params)
 
     
-    def obj6(trial):
+    def obj6(self, trial):
         """
         6. Tuning feature_fraction
         feature_fraction: default 1.0, 0.0 < feature_fraction <= 1.0
@@ -176,6 +176,7 @@ class OptunaStepwise():
         for i, (obj, n_trials) in enumerate(zip([self.obj1,self.obj2,self.obj3,self.obj4,self.obj5,self.obj6], [40,40,40,40,30,30])):
             print(f'Start optimization {i+1}.')
             logging.getLogger().info(f'Start optimization {i+1}.')
+
             study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=self.__class__.seed_optuna))
             study.optimize(obj, n_trials=n_trials)
             print(study.best_params)
