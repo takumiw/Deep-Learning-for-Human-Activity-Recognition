@@ -106,7 +106,7 @@ for c, mode in zip([Counter(y_train.values.flatten()), Counter(y_test.values.fla
     print()
 
 # Split data by preserving the percentage of samples for each class.
-n_splits = 10
+n_splits = 5
 cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=71)
 valid_preds = np.zeros((X_train.shape[0], 6))
 test_preds = np.zeros((n_splits, X_test.shape[0], 6))
