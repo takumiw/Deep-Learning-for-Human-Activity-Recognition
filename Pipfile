@@ -19,6 +19,7 @@ seaborn = "*"
 catboost = "*"
 xgboost = "*"
 lightgbm = "*"
+statsmodels = "*"
 
 [requires]
 python_version = "3.6"
