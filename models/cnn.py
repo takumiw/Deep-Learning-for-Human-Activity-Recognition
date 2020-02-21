@@ -3,11 +3,9 @@ import os, logging, sys
 from datetime import datetime
 import numpy as np
 import pandas as pd
-import json
 from collections import Counter
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 
 import keras
@@ -15,14 +13,21 @@ from keras.models import Sequential, Model, load_model
 from keras.layers import Dense, Activation, Dropout, Flatten, Conv2D, MaxPooling2D
 from keras.utils import np_utils, plot_model
 from keras import backend as K
-from keras.callbacks import Callback, ModelCheckpoint, CSVLogger, EarlyStopping
+from keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
+# Suppress warnings 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 EXEC_TIME = 'cnn-' + datetime.now().strftime("%Y%m%d-%H%M%S")
-logging.basicConfig(filename=f'../logs/{EXEC_TIME}.log', level=logging.DEBUG)
+os.makedirs(f'../logs/{EXEC_TIME}-history', exist_ok=True)
+
+logging.basicConfig(filename=f'../logs/{EXEC_TIME}-history/{EXEC_TIME}.log', level=logging.DEBUG)
 mpl_logger = logging.getLogger('matplotlib')
 mpl_logger.setLevel(logging.WARNING)
-logging.debug(f'../logs/{EXEC_TIME}.log')
+logging.debug(f'../logs/{EXEC_TIME}-history/{EXEC_TIME}.log')
 
 
 def load_data():
@@ -38,21 +43,15 @@ def load_data():
         X_test (DataFrame):
         y_train (DataFrame): 
         y_test (DataFrame): 
-        subject_id_train (array): subject_id for each record
-        subject_id_test (array): subject_id for each record
         label2activity_dict (dict): key:label_id, value: title_of_class
         activity2label_dict (dict): key:title_of_class, value: label_id
     """
     root = '../data/my_dataset/'
     X_train = np.load(root + 'Raw_X_train.npy')
     y_train = pd.read_table(root + 'y_train.txt', sep=' ', header=None)
-    
-    # subject_id_train = pd.read_table(root + 'Train/subject_id_train.txt', sep=' ', header=None)
 
     X_test = np.load(root + 'Raw_X_test.npy')
     y_test = pd.read_table(root + 'y_test.txt', sep=' ', header=None)
-    
-    # subject_id_test = pd.read_table(root + 'Test/subject_id_test.txt', sep=' ', header=None)
 
     activity_labels = pd.read_table('../data/hapt_data_set/activity_labels.txt', header=None).values.flatten()
     activity_labels = np.array([label.rstrip().split() for label in activity_labels])
@@ -63,16 +62,6 @@ def load_data():
 
     class_names_inc = ['WALKING', 'WALKING_UPSTAIRS', 'WALKING_DOWNSTAIRS', 'SITTING', 'STANDING', 'LAYING']
     class_ids_inc = [activity2label_dict[c] for c in class_names_inc]
-
-    # idx_train = y_train[y_train[0].isin(class_ids_inc)].index
-    # X_train = X_train.iloc[idx_train].reset_index(drop=True)
-    # y_train = y_train.iloc[idx_train].reset_index(drop=True)
-    # subject_id_train = subject_id_train.iloc[idx_train].reset_index(drop=True)
-
-    # idx_test = y_test[y_test[0].isin(class_ids_inc)].index
-    # X_test = X_test.iloc[idx_test].reset_index(drop=True)
-    # y_test = y_test.iloc[idx_test].reset_index(drop=True)
-    # subject_id_test = subject_id_test.iloc[idx_test].reset_index(drop=True)
 
     # Replace 6 to 0
     rep_activity = label2activity_dict[6]
@@ -86,13 +75,10 @@ def load_data():
     y_train = np_utils.to_categorical(y_train.values.reshape(len(y_train)), 6)
     y_test = np_utils.to_categorical(y_test.values.reshape(len(y_test)), 6)
 
-    # return X_train, X_test, y_train, y_test, subject_id_train, subject_id_test, label2activity_dict, activity2label_dict
     return X_train, X_test, y_train, y_test, label2activity_dict, activity2label_dict
 
 
-# X_train, X_test, y_train, y_test, subject_id_train, subject_id_test, label2activity_dict, activity2label_dict = load_data()
 X_train, X_test, y_train, y_test, label2activity_dict, activity2label_dict = load_data()
-
 
 for c, mode in zip([Counter(y_train.argmax(axis=1)), Counter(y_test.argmax(axis=1))], ['train', 'test']):
     print(f'{mode} samples')
@@ -103,9 +89,7 @@ for c, mode in zip([Counter(y_train.argmax(axis=1)), Counter(y_test.argmax(axis=
     print()
 
 
-def define_model(window_size:int=128, output_dim:int=6) -> Model:
-    print('--define model--')
-
+def create_model(window_size:int=128, output_dim:int=6) -> Model:
     model = Sequential()
     model.add(Conv2D(70, kernel_size=(7, 1), input_shape=(window_size, 6, 1)))
     model.add(Activation('relu'))
@@ -126,40 +110,45 @@ def define_model(window_size:int=128, output_dim:int=6) -> Model:
     model.add(Flatten())
     model.add(Dense(500))
     model.add(Activation('relu'))
-    model.add(Dropout(0.5))
+    model.add(Dropout(0.5, seed=4))
     model.add(Dense(output_dim))
     model.add(Activation('softmax'))
     model.compile(
         loss=keras.losses.categorical_crossentropy, 
-        # optimizer=keras.optimizers.Adam(lr=0.0001),
-        optimizer=keras.optimizers.Adam(lr=0.0001),
+        optimizer=keras.optimizers.Adam(lr=0.0003),
         metrics=['accuracy']
         )
     return model
 
 
-X_tr, X_val, y_tr, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=0, shuffle=True, stratify=y_train)
+X_tr, X_val, y_tr, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=71, shuffle=True, stratify=y_train)
 
 print(f'X_train:{X_tr.shape} X_valid:{X_val.shape} X_test:{X_test.shape}')
-print(f'y_train:{y_train.shape} y_valid:{y_val.shape} y_test:{y_test.shape}')
+print(f'y_train:{y_tr.shape} y_valid:{y_val.shape} y_test:{y_test.shape}')
 logging.debug(f'X_train:{X_tr.shape} X_valid:{X_val.shape} X_test:{X_test.shape}')
-logging.debug(f'y_train:{y_train.shape} y_valid:{y_val.shape} y_test:{y_test.shape}')
+logging.debug(f'y_train:{y_tr.shape} y_valid:{y_val.shape} y_test:{y_test.shape}')
 
-callbacks = []
-callbacks.append(EarlyStopping(monitor='val_loss', min_delta=0, patience=15, verbose=0, mode='min'))
+# callbacks
+early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=15, verbose=0, mode='min')
+fn = f'../logs/{EXEC_TIME}-history/trained_model.h5'
+model_checkpoint = ModelCheckpoint(filepath=fn, save_best_only=True)
+reduce_lr_on_plateau = ReduceLROnPlateau(factor=0.2, patience=5, verbose=1, min_lr=0.000001)
+callbacks = [early_stopping, model_checkpoint, reduce_lr_on_plateau]
 
-model = define_model()
-# モデルの構造のプロット図を保存
-plot_model(model, to_file=f'{EXEC_TIME}_model.png', show_shapes=True)
+model = create_model()
+
+# Save plot of model architecture
+plot_model(model, to_file=f'../logs/{EXEC_TIME}-history/model.png', show_shapes=True)
+
 fit = model.fit(
     X_tr, y_tr, 
     batch_size=32, 
     epochs=2000, 
-    verbose=1, 
-    validation_data = (X_val, y_val),
+    verbose=2, 
+    validation_data=(X_val, y_val),
     callbacks=callbacks)
 
-# 学習曲線をプロットする
+# Plot learning curve
 fig, (axL, axR) = plt.subplots(ncols=2, figsize=(10, 4))
 axL.plot(fit.history['loss'], label="loss for training")
 axL.plot(fit.history['val_loss'], label="loss for validation")
@@ -175,8 +164,17 @@ axR.set_xlabel('epoch')
 axR.set_ylabel('accuracy')
 axR.legend(loc='upper right')
 
-fig.savefig(f'{EXEC_TIME}_hitsoty.png')
+fig.savefig(f'../logs/{EXEC_TIME}-history/history.png')
 plt.close()
+
+# Logging training history of every 10 epochs
+df = pd.DataFrame(fit.history)
+index = np.arange(0, len(df), 10)
+logging.debug(f'\n{df.iloc[index]}')
+logging.debug(f'Early stopping at {len(df)-1}th epoch')
+
+# ベストのモデルをロードする
+model = load_model(fn)
 
 
 for X, y, mode in zip([X_tr, X_val, X_test], [y_tr, y_val, y_test], ['train', 'valid', 'test']):
@@ -187,13 +185,6 @@ for X, y, mode in zip([X_tr, X_val, X_test], [y_tr, y_val, y_test], ['train', 'v
     recall = recall_score(y, pred, average='macro')
     f1 = f1_score(y, pred, average='macro')
 
-    print(mode)
-    print(f'logloss {logloss}')
-    print(f'accuracy {acc}')
-    print(f'precision {prec}')
-    print(f'recall {recall}')
-    print(f'f1 {f1}')
-
     logging.debug(mode)
     logging.debug(f'logloss {logloss}')
     logging.debug(f'accuracy {acc}')
@@ -201,6 +192,5 @@ for X, y, mode in zip([X_tr, X_val, X_test], [y_tr, y_val, y_test], ['train', 'v
     logging.debug(f'recall {recall}')
     logging.debug(f'f1 {f1}')
 
-    print(f'confusion matrix\n{np.array2string(confusion_matrix(y, pred))}')
     logging.debug(f'confusion matrix\n{np.array2string(confusion_matrix(y, pred))}')
     
