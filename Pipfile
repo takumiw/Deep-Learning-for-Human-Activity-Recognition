@@ -20,6 +20,7 @@ catboost = "*"
 xgboost = "*"
 lightgbm = "*"
 statsmodels = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.6"
