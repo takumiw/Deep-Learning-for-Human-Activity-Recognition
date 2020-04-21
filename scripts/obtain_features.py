@@ -1,10 +1,12 @@
 # -*- coding:utf-8 -*-
 import numpy as np
+from numpy.linalg import norm
 import pandas as pd
 import math
-from numpy.linalg import norm
+from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_EVEN
 from scipy import signal, stats
 from statsmodels.regression.linear_model import burg
+from statsmodels.distributions.empirical_distribution import ECDF
 
 
 class ObtainFeatures():
@@ -158,6 +160,26 @@ class ObtainFeatures():
             amp.iloc[0] = amp.iloc[0] / 2
         
         return amp
+    
+
+    def obtain_ecdf_percentile(self, sensor_signal, n_bins=10):
+        """Obtain ECDF (empirical cumulative distribution function) percentile values.
+        Args:
+            sensor_signal (DataFrame): Time domain signals
+            n_bins (int, default: 10): How many percentiles to use as a feature
+        Returns:
+            features (array): ECDF percentile values.
+        """
+        idx = np.linspace(0, sensor_signal.shape[0]-1, n_bins)  # Take n_bins linspace percentile.
+        idx = [int(Decimal(str(ix)).quantize(Decimal('0'), rounding=ROUND_HALF_UP)) for ix in idx]
+        features = np.array([])
+        for axis in ['x', 'y', 'z']:
+            ecdf = ECDF(sensor_signal[axis].values)  # fit
+            x = ecdf.x[1:]  # Remove -inf
+            feat = x[idx]
+            features = np.hstack([features, feat])
+
+        return features
     
     
     def obtain_mean(self, sensor_signal) -> np.ndarray:
