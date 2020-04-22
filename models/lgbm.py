@@ -7,25 +7,26 @@ import json
 from collections import Counter
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
+from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
-
 import lightgbm as lgb
 
 sys.path.append('../')
 from logs.logger import log_evaluation
+
+# Logging settings
 EXEC_TIME = 'lgbm-' + datetime.now().strftime("%Y%m%d-%H%M%S")
-logging.basicConfig(filename=f'../logs/{EXEC_TIME}.log', level=logging.DEBUG)
-mpl_logger = logging.getLogger('matplotlib')
+os.makedirs(f'../logs/{EXEC_TIME}', exist_ok=True)  # Create log directory
+logging.basicConfig(filename=f'../logs/{EXEC_TIME}/{EXEC_TIME}.log', level=logging.DEBUG)
+mpl_logger = logging.getLogger('matplotlib')  # Suppress matplotlib logging 
 mpl_logger.setLevel(logging.WARNING)
-logging.debug(f'../logs/{EXEC_TIME}.log')
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))  # Handle logging to both logging and stdout.
+logging.debug(f'../logs/{EXEC_TIME}/{EXEC_TIME}.log')
 
-
+# Load hyper-parameters
 with open('../configs/default.json', 'r') as f:
-    d = json.load(f)
-    params = d['lgbm_params']
-
-logging.debug(f'params: {params}')
+    params = json.load(f)['lgbm_params']
+    logging.debug(f'params: {params}')
 
 
 def load_data():
@@ -37,12 +38,12 @@ def load_data():
         - STAND_TO_SIT, SIT_TO_STAND, SIT_TO_LIE, LIE_TO_SIT, STAND_TO_LIE, and LIE_TO_STAND
     Args:
     Returns:
-        X_train (DataFrame): 
-        X_test (DataFrame):
-        y_train (DataFrame): 
-        y_test (DataFrame): 
-        subject_id_train (array): subject_id for each record
-        subject_id_test (array): subject_id for each record
+        X_train (pandas.DataFrame): Explanatory variable in train data
+        X_test (pandas.DataFrame): Explanatory variable in test data
+        y_train (pandas.DataFrame): Teacher data in train data
+        y_test (pandas.DataFrame): Teacher data in test data
+        subject_id_train (numpy.array): subject_id for each record
+        subject_id_test (numpy.array): subject_id for each record
         label2activity_dict (dict): key:label_id, value: title_of_class
         activity2label_dict (dict): key:title_of_class, value: label_id
     """
@@ -50,12 +51,16 @@ def load_data():
     features = pd.read_table(root + 'features.txt', header=None).values.flatten()
     features = np.array([feature.rstrip() for feature in features])
 
-    X_train = pd.read_table(root + 'Train/X_train.txt', sep=' ', header=None, names=features)
-    y_train = pd.read_table(root + 'Train/y_train.txt', sep=' ', header=None)
+    # X_train = pd.read_table(root + 'Train/X_train.txt', sep=' ', header=None, names=features)
+    # y_train = pd.read_table(root + 'Train/y_train.txt', sep=' ', header=None)
+    X_train = pd.read_pickle('../data/my_dataset/X_train.pickle')
+    y_train = pd.DataFrame(np.load('../data/my_dataset/y_train.npy'))
     subject_id_train = pd.read_table(root + 'Train/subject_id_train.txt', sep=' ', header=None)
 
-    X_test = pd.read_table(root + 'Test/X_test.txt', sep=' ', header=None, names=features)
-    y_test = pd.read_table(root + 'Test/y_test.txt', sep=' ', header=None)
+    # X_test = pd.read_table(root + 'Test/X_test.txt', sep=' ', header=None, names=features)
+    # y_test = pd.read_table(root + 'Test/y_test.txt', sep=' ', header=None)
+    X_test = pd.read_pickle('../data/my_dataset/X_test.pickle')
+    y_test = pd.DataFrame(np.load('../data/my_dataset/y_test.npy'))
     subject_id_test = pd.read_table(root + 'Test/subject_id_test.txt', sep=' ', header=None)
 
     activity_labels = pd.read_table(root + 'activity_labels.txt', header=None).values.flatten()
@@ -91,26 +96,21 @@ def load_data():
 
 
 X_train, X_test, y_train, y_test, subject_id_train, subject_id_test, label2activity_dict, activity2label_dict = load_data()
-
-print(f'X_train:{X_train.shape} X_test:{X_test.shape}')
-print(f'y_train:{y_train.shape} y_test:{y_test.shape}')
 logging.debug(f'X_train:{X_train.shape} X_test:{X_test.shape}')
 logging.debug(f'y_train:{y_train.shape} y_test:{y_test.shape}')
 
 for c, mode in zip([Counter(y_train.values.flatten()), Counter(y_test.values.flatten())], ['train', 'test']):
-    print(f'{mode} samples')
     logging.debug(f'{mode} samples')
     for label_id in range(6):
-        print(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]} ({c[label_id]/len(c):.04})', end='\t')
         logging.debug(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]} ({c[label_id]/len(c):.04})')
-    print()
 
 # Split data by preserving the percentage of samples for each class.
 n_splits = 5
 cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=71)
 valid_preds = np.zeros((X_train.shape[0], 6))
 test_preds = np.zeros((n_splits, X_test.shape[0], 6))
-importances = np.zeros((n_splits, X_train.shape[1]))
+importances_split = np.zeros((n_splits, X_train.shape[1]))
+importances_gain = np.zeros((n_splits, X_train.shape[1]))
 score_list = {
     'logloss': {'train': [], 'valid': [], 'test': []},
     'accuracy': {'train': [], 'valid': [], 'test': []},
@@ -134,7 +134,7 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
     model = lgb.train(
             params, lgb_train,
             valid_sets=[lgb_train, lgb_eval],
-            verbose_eval=50,
+            verbose_eval=False,
             num_boost_round=50000,
             early_stopping_rounds=50,
             callbacks=callbacks
@@ -150,7 +150,8 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
 
     valid_preds[valid_index] = pred_val
     test_preds[fold_id] = pred_test
-    importances[fold_id] = model.feature_importance()
+    importances_split[fold_id] = model.feature_importance(importance_type='split')
+    importances_gain[fold_id] = model.feature_importance(importance_type='gain')
 
     score_list['logloss']['train'].append(model.best_score['training']['multi_logloss'])
     score_list['logloss']['valid'].append(model.best_score['valid_1']['multi_logloss'])
@@ -167,32 +168,26 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
         score_list['precision'][mode].append(prec)
         score_list['recall'][mode].append(recall)
         score_list['f1'][mode].append(f1)
-
-        print(f'{mode} confusion matrix\n{np.array2string(confusion_matrix(y, pred))}')
         logging.debug(f'{mode} confusion matrix\n{np.array2string(confusion_matrix(y, pred))}')
     
-
-print('---Cross Validation Scores---')
+logging.debug('---Cross Validation Scores---')
 for mode in ['train', 'valid', 'test']:
-    print(f'---{mode}---')
     logging.debug(f'---{mode}---')
     for metric in ['logloss', 'accuracy', 'precision', 'recall', 'f1']:
-        print(f'{metric}\t{np.mean(score_list[metric][mode])}\t{score_list[metric][mode]}')
         logging.debug(f'{metric}\t{np.mean(score_list[metric][mode])}\t{score_list[metric][mode]}')
 
-
 # Plot feature importance
-importance = np.mean(importances, axis=0)
-importance_df = pd.DataFrame({'Feature': X_train.columns, 'Value': importance})
+for importances, mode in zip([importances_split, importances_gain], ['split', 'gain']):
+    importance = np.mean(importances, axis=0)
+    importance_df = pd.DataFrame({'Feature': X_train.columns, 'Value': importance})
 
-plt.figure(figsize=(16, 10))
-sns.barplot(x="Value", y="Feature", data=importance_df.sort_values(by="Value", ascending=False)[:30])
-plt.title('LightGBM Top 30 Feature Importance (avg over folds)')
-plt.tight_layout()
-plt.savefig(f'../features/importances/{EXEC_TIME}.png')
+    plt.figure(figsize=(16, 20))
+    sns.barplot(x="Value", y="Feature", data=importance_df.sort_values(by="Value", ascending=False)[:100])
+    plt.title(f'LightGBM Top 100 {mode} Feature Importance (avg over folds)')
+    plt.tight_layout()
+    plt.savefig(f'../logs/{EXEC_TIME}/importance_{mode}.png')
 
-os.makedirs(f'../data/pred/{EXEC_TIME}', exist_ok=True)
-np.save(f'../data/pred/{EXEC_TIME}/valid_oof.npy', valid_preds)
+np.save(f'../logs/{EXEC_TIME}/valid_oof.npy', valid_preds)
 
 test_preds = np.mean(test_preds, axis=0)  # Averaging
-np.save(f'../data/pred/{EXEC_TIME}/test_oof.npy', test_preds)
+np.save(f'../logs/{EXEC_TIME}/test_oof.npy', test_preds)
