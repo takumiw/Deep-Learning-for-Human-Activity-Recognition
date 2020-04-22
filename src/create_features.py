@@ -1,10 +1,17 @@
 # -*- coding:utf-8 -*-
 import numpy as np
-from obtain_features import ObtainFeatures
+from src.obtain_features import ObtainFeatures  # Load class for obtaining features
 
 
-def create_features(acc_raw, gyro_raw):    
-    of = ObtainFeatures(acc_raw, gyro_raw)
+def create_features(acc_raw, gyro_raw):
+    """Create features from raw acceleration and gyroscope sensor data
+    Args:
+        acc_raw (pandas.DataFrame): Raw 3-axial accelerometer signals with columns denoting axes.
+        gyro_raw (pandas.DataFrame): Raw 3-axial gyroscope signals with columns denoting axes.
+    Returns:
+        features (pandas.DataFrame): Created features corresponding args with columns denoting feature names.
+    """
+    of = ObtainFeatures(acc_raw, gyro_raw)  # Create an instance.
     
     # Remove noises by median filter & Butterworth filter
     acc_raw = of.apply_median_filter(acc_raw)
@@ -27,7 +34,7 @@ def create_features(acc_raw, gyro_raw):
     for body_acc, gyro in zip(tBodyAccXYZ, tBodyGyroXYZ):
         body_acc_jerk = of.obtain_jerk_signal(body_acc)
         gyro_jerk = of.obtain_jerk_signal(gyro)
-        
+
         tBodyAccJerkXYZ.append(body_acc_jerk)
         tBodyGyroJerkXYZ.append(gyro_jerk)
         
@@ -66,7 +73,7 @@ def create_features(acc_raw, gyro_raw):
         fBodyGyroMag.append(gyro_mag_amp)
         fBodyGyroJerkMag.append(gyro_jerk_mag_amp)
     
-    #  Following signals are obtained.
+    #  Following signals are obtained by implementing above functions.
     time_signals = [
         tBodyAccXYZ, 
         tGravityAccXYZ, 
@@ -88,8 +95,8 @@ def create_features(acc_raw, gyro_raw):
         fBodyGyroJerkMag]
     all_signals = time_signals + freq_signals
     
-    # Calculate feature vectors
-    features = np.zeros((len(tBodyAccXYZ), 561))
+    # Calculate feature vectors by using signals
+    features = np.zeros((len(tBodyAccXYZ), 621))
     
     for i in range(len(tBodyAccXYZ)):
         feature_vector = np.array([])
@@ -106,21 +113,18 @@ def create_features(acc_raw, gyro_raw):
             energy =  of.obtain_energy(sig)
             iqr = of.obtain_iqr(sig)
             entropy = of.obtain_entropy(sig)
-            
             feature_vector = np.hstack((feature_vector, mean, std, mad, max_val, min_val, sma, energy, iqr, entropy))
             
         # arCoeff
         for t_signal in time_signals:
             sig = t_signal[i]
             arCoeff = of.obtain_arCoeff(sig)
-            
             feature_vector = np.hstack((feature_vector, arCoeff))
         
         # correlation
         for t_signal in [tBodyAccXYZ, tGravityAccXYZ, tBodyAccJerkXYZ, tBodyGyroXYZ, tBodyGyroJerkXYZ]:
             sig = t_signal[i]
             correlation = of.obtain_correlation(sig)
-            
             feature_vector = np.hstack((feature_vector, correlation))
         
         # maxInds, meanFreq, skewness, kurtosis
@@ -130,14 +134,12 @@ def create_features(acc_raw, gyro_raw):
             meanFreq = of.obtain_meanFreq(sig)
             skewness = of.obtain_skewness(sig)
             kurtosis = of.obtain_kurtosis(sig)
-            
             feature_vector = np.hstack((feature_vector, maxInds, meanFreq, skewness, kurtosis))
         
         # bandsEnergy
         for t_signal in [tBodyAccXYZ, tBodyAccJerkXYZ, tBodyGyroXYZ]:
             sig = t_signal[i]
             bandsEnergy = of.obtain_bandsEnergy(sig)
-            
             feature_vector = np.hstack((feature_vector, bandsEnergy))
         
         # angle
@@ -163,7 +165,69 @@ def create_features(acc_raw, gyro_raw):
         
         feature_vector = np.hstack((feature_vector, tBodyAccWRTGravity, tBodyAccJerkWRTGravity, tBodyGyroWRTGravity, tBodyGyroJerkWRTGravity, \
                                    tXAxisAccWRTGravity, tYAxisAccWRTGravity, tZAxisAccWRTGravity))
-    
+
+         # ECDF
+        for t_signal in [tBodyAccXYZ, tBodyGyroXYZ]:
+            sig = t_signal[i]
+            ecdf = of.obtain_ecdf_percentile(sig)
+            feature_vector = np.hstack((feature_vector, ecdf))
+
         features[i] = feature_vector
     
     return features
+
+
+def get_feature_names():
+    """Get feature names
+    Returns:
+        feature_names (list): Title of features
+    """
+    time_signal_names = [
+        'tBodyAccXYZ', 'tGravityAccXYZ', 'tBodyAccJerkXYZ', 'tBodyGyroXYZ', 'tBodyGyroJerkXYZ',
+        'tBodyAccMag', 'tGravityAccMag', 'tBodyAccJerkMag', 'tBodyGyroMag', 'tBodyGyroJerkMag']
+    freq_signal_names = [
+        'fBodyAccXYZ', 'fBodyAccJerkXYZ', 'fBodyGyroXYZ', 'fBodyAccMag', 'fBodyAccJerkMag',
+        'fBodyGyroMag', 'fBodyGyroJerkMag']
+    all_signal_names = time_signal_names + freq_signal_names
+    feature_names = []
+    
+    for name in all_signal_names:
+        for s in ['Mean', 'Std', 'Mad', 'Max', 'Min', 'Sma', 'Energy', 'Iqr', 'Entropy']:
+            if s == 'Sma':
+                feature_names.append(f'{name}{s}')
+                continue
+            if 'XYZ' in name:
+                n = name.replace('XYZ', '')
+                feature_names += [f'{n}{s}-{ax}' for ax in ['X', 'Y', 'Z']]
+            else:
+                feature_names.append(f'{name}{s}')
+    
+    for name in time_signal_names:
+        if 'XYZ' in name:
+            n = name.replace('XYZ', '')
+            feature_names += [f'{n}ArCoeff-{ax}{i}' for ax in ['X', 'Y', 'Z'] for i in range(4)]
+        else:
+            feature_names += [f'{name}ArCoeff{i}' for i in range(4)]
+    
+    for name in ['tBodyAccXYZ', 'tGravityAccXYZ', 'tBodyAccJerkXYZ', 'tBodyGyroXYZ', 'tBodyGyroJerkXYZ']:
+        n = name.replace('XYZ', '')
+        feature_names += [f'{n}Correlation-{ax}' for ax in ['X', 'Y', 'Z']]
+    
+    for name in freq_signal_names:
+        for s in ['MaxInds', 'MeanFreq', 'Skewness', 'Kurtosis']:
+            if 'XYZ' in name:
+                n = name.replace('XYZ', '')
+                feature_names += [f'{n}{s}-{ax}' for ax in ['X', 'Y', 'Z']]
+            else:
+                feature_names.append(f'{name}{s}')
+    
+    for name in ['tBodyAccXYZ', 'tBodyAccJerkXYZ', 'tBodyGyroXYZ']:
+        n = name.replace('XYZ', '')
+        feature_names += [f'{n}BandsEnergy-{ax}{i}' for i in range(14) for ax in ['X', 'Y', 'Z']]
+        
+    feature_names += [
+        'tBodyAccWRTGravity', 'tBodyAccJerkWRTGravity', 'tBodyGyroWRTGravity', 
+        'tBodyGyroJerkWRTGravity', 'tXAxisAccWRTGravity', 'tYAxisAccWRTGravity', 'tZAxisAccWRTGravity']
+    
+    feature_names += [f'tBody{sensor}ECDF-{axis}{i}' for sensor in ['Acc', 'Gyro'] for axis in ['X', 'Y', 'Z'] for i in range(10)]
+    return feature_names
