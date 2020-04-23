@@ -48,9 +48,6 @@ def load_data():
         activity2label_dict (dict): key:title_of_class, value: label_id
     """
     root = '../data/hapt_data_set/'
-    features = pd.read_table(root + 'features.txt', header=None).values.flatten()
-    features = np.array([feature.rstrip() for feature in features])
-
     X_train = pd.read_pickle('../data/my_dataset/X_train.pickle')
     y_train = pd.DataFrame(np.load('../data/my_dataset/y_train.npy'))
     subject_id_train = pd.read_table(root + 'Train/subject_id_train.txt', sep=' ', header=None)
