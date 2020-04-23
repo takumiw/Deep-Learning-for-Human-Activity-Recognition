@@ -22,9 +22,9 @@ The test scores below show very good results.
 * **Accuracy: 96.37%**
 * F1 score (macro avg. over six classes): 96.46
 * Precision score (macro avg. over six classes): 96.57
-* Recall score (macro avg. over six classes): 96.42  
-The feature importance shows that time-domain features are especially effective for classifying activities.
-![](https://user-images.githubusercontent.com/30923675/80077504-8c0e1100-8588-11ea-84f4-024d34fdf763.png)
+* Recall score (macro avg. over six classes): 96.42    
+The feature contribution explained by [SHAP](https://github.com/slundberg/shap) (SHapley Additive exPlanations) shows that time-domain features are especially effective for classifying activities.  
+![](https://user-images.githubusercontent.com/30923675/80086908-56235980-8595-11ea-8318-39b3f9ca3d8a.png)
 
 <br>
 
