@@ -51,14 +51,10 @@ def load_data():
     features = pd.read_table(root + 'features.txt', header=None).values.flatten()
     features = np.array([feature.rstrip() for feature in features])
 
-    # X_train = pd.read_table(root + 'Train/X_train.txt', sep=' ', header=None, names=features)
-    # y_train = pd.read_table(root + 'Train/y_train.txt', sep=' ', header=None)
     X_train = pd.read_pickle('../data/my_dataset/X_train.pickle')
     y_train = pd.DataFrame(np.load('../data/my_dataset/y_train.npy'))
     subject_id_train = pd.read_table(root + 'Train/subject_id_train.txt', sep=' ', header=None)
 
-    # X_test = pd.read_table(root + 'Test/X_test.txt', sep=' ', header=None, names=features)
-    # y_test = pd.read_table(root + 'Test/y_test.txt', sep=' ', header=None)
     X_test = pd.read_pickle('../data/my_dataset/X_test.pickle')
     y_test = pd.DataFrame(np.load('../data/my_dataset/y_test.npy'))
     subject_id_test = pd.read_table(root + 'Test/subject_id_test.txt', sep=' ', header=None)
