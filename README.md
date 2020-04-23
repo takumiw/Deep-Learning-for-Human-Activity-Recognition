@@ -26,11 +26,12 @@ The test scores below show very good results.
 The feature importance shows that time-domain features are especially effective for classifying activities.
 ![](https://user-images.githubusercontent.com/30923675/80077504-8c0e1100-8588-11ea-84f4-024d34fdf763.png)
 
-
+<br>
 
 ### Convolutional Neural network (CNN)
 Coming soon.
 
+<br>
 
 ### Long Short-Term Memor (LSTM)
 Coming soon.
