@@ -27,7 +27,7 @@ def main():
     gyro_files = sorted(glob.glob(root + 'gyro*.txt'))
     label_info = pd.read_table(root + 'labels.txt', sep=' ', header=None, names=['ExpID', 'UserID', 'ActID', 'ActStart', 'ActEnd'])
     
-    X_train, X_test = np.empty((0, 621)), np.empty((0, 621))
+    X_train, X_test = [], []
     y_train, y_test = np.array([]), np.array([])
     
     # Create features from each row data file
@@ -47,15 +47,15 @@ def main():
             labels = [act_id] * len(features)
             
             if user_id in TRAIN_SUBJECTS:
-                X_train = np.vstack((X_train, features))
+                X_train.append(features)
                 y_train = np.hstack((y_train, labels))
             else:
-                X_test = np.vstack((X_test, features))
+                X_test.append(features)
                 y_test = np.hstack((y_test, labels))
 
     columns = get_feature_names()
-    X_train = pd.DataFrame(X_train, columns=columns)
-    X_test = pd.DataFrame(X_test, columns=columns)
+    X_train = pd.DataFrame(np.vstack(X_train), columns=columns)
+    X_test = pd.DataFrame(np.vstack(X_test), columns=columns)
 
     logging.debug(f'X_train: {X_train.shape}, X_test: {X_test.shape}')
     logging.debug(f'y_train: {y_train.shape}, y_test: {y_test.shape}')
