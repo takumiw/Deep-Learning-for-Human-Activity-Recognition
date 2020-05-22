@@ -56,7 +56,7 @@ def create_features(acc_raw, gyro_raw):
         
     # Obtain amplitude spectrum using Fast Fourier Transform (FFT).
     fBodyAccXYZAmp, fBodyAccJerkXYZAmp, fBodyGyroXYZAmp, fBodyAccMagAmp, fBodyAccJerkMagAmp, fBodyGyroMagAmp, fBodyGyroJerkMagAmp = [], [], [] ,[] ,[] ,[], []
-    # fBodyAccXYZPhs, fBodyAccJerkXYZPhs, fBodyGyroXYZPhs, fBodyAccMagPhs, fBodyAccJerkMagPhs, fBodyGyroMagPhs, fBodyGyroJerkMagPhs = [], [], [] ,[] ,[] ,[], []
+    fBodyAccXYZPhs, fBodyAccJerkXYZPhs, fBodyGyroXYZPhs, fBodyAccMagPhs, fBodyAccJerkMagPhs, fBodyGyroMagPhs, fBodyGyroJerkMagPhs = [], [], [] ,[] ,[] ,[], []
     for body_acc, body_acc_jerk, gyro, body_acc_mag, body_acc_jerk_mag, gyro_mag, gyro_jerk_mag in \
         zip(tBodyAccXYZ, tBodyAccJerkXYZ, tBodyGyroXYZ, tBodyAccMag, tBodyAccJerkMag, tBodyGyroMag, tBodyGyroJerkMag):
         body_acc_amp, body_acc_phase = of.obtain_spectrum(body_acc.copy())
@@ -75,13 +75,13 @@ def create_features(acc_raw, gyro_raw):
         fBodyGyroMagAmp.append(gyro_mag_amp)
         fBodyGyroJerkMagAmp.append(gyro_jerk_mag_amp)
 
-        """fBodyAccXYZPhs.append(body_acc_phase)
+        fBodyAccXYZPhs.append(body_acc_phase)
         fBodyAccJerkXYZPhs.append(body_acc_jerk_phase)
         fBodyGyroXYZPhs.append(gyro_phase)
         fBodyAccMagPhs.append(body_acc_mag_phase)
         fBodyAccJerkMagPhs.append(body_acc_jerk_mag_phase)
         fBodyGyroMagPhs.append(gyro_mag_phase)
-        fBodyGyroJerkMagPhs.append(gyro_jerk_mag_phase)"""
+        fBodyGyroJerkMagPhs.append(gyro_jerk_mag_phase)
     
     #  Following signals are obtained by implementing above functions.
     time_signals = [
@@ -102,21 +102,19 @@ def create_features(acc_raw, gyro_raw):
         fBodyAccMagAmp,
         fBodyAccJerkMagAmp,
         fBodyGyroMagAmp,
-        fBodyGyroJerkMagAmp
-    ]
-    """
-    fBodyAccXYZPhs,
-    fBodyAccJerkXYZPhs,
-    fBodyGyroXYZPhs,
-    fBodyAccMagPhs,
-    fBodyAccJerkMagPhs,
-    fBodyGyroMagPhs,
-    fBodyGyroJerkMagPhs]
-    """
+        fBodyGyroJerkMagAmp,
+        fBodyAccXYZPhs,
+        fBodyAccJerkXYZPhs,
+        fBodyGyroXYZPhs,
+        fBodyAccMagPhs,
+        fBodyAccJerkMagPhs,
+        fBodyGyroMagPhs,
+        fBodyGyroJerkMagPhs]
+
     all_signals = time_signals + freq_signals
     
     # Calculate feature vectors by using signals
-    features = np.empty((0, 621))  # 784
+    features = []
     
     for i in range(len(tBodyAccXYZ)):
         feature_vector = np.array([])
@@ -192,9 +190,9 @@ def create_features(acc_raw, gyro_raw):
             ecdf = of.obtain_ecdf_percentile(sig)
             feature_vector = np.hstack((feature_vector, ecdf))
 
-        features = np.vstack((features, feature_vector))
+        features.append(feature_vector)
     
-    return features
+    return np.array(features)
 
 
 def get_feature_names():
@@ -208,8 +206,8 @@ def get_feature_names():
     freq_signal_names = [
         'fBodyAccXYZAmp', 'fBodyAccJerkXYZAmp', 'fBodyGyroXYZAmp', 'fBodyAccMagAmp', 'fBodyAccJerkMagAmp',
         'fBodyGyroMagAmp', 'fBodyGyroJerkMagAmp',
-        """'fBodyAccXYZPhs', 'fBodyAccJerkXYZPhs', 'fBodyGyroXYZPhs', 'fBodyAccMagPhs', 'fBodyAccJerkMagPhs',
-        'fBodyGyroMagPhs', 'fBodyGyroJerkMagPhs'"""]
+        'fBodyAccXYZPhs', 'fBodyAccJerkXYZPhs', 'fBodyGyroXYZPhs', 'fBodyAccMagPhs', 'fBodyAccJerkMagPhs',
+        'fBodyGyroMagPhs', 'fBodyGyroJerkMagPhs']
     all_signal_names = time_signal_names + freq_signal_names
     feature_names = []
     
