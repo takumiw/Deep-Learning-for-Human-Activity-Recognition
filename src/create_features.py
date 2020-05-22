@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 import numpy as np
-from src.obtain_features import ObtainFeatures  # Load class for obtaining features
+from src.preprocessing import Preprocess  # Load class for obtaining features
 
 
 def create_features(acc_raw, gyro_raw):
@@ -11,29 +11,30 @@ def create_features(acc_raw, gyro_raw):
     Returns:
         features (pandas.DataFrame): Created features corresponding args with columns denoting feature names.
     """
-    of = ObtainFeatures(acc_raw, gyro_raw)  # Create an instance.
+    of = Preprocess(fs=50)  # Create an instance.
     
     # Remove noises by median filter & Butterworth filter
-    acc_raw = of.apply_median_filter(acc_raw)
-    acc_raw = of.apply_butterworth_filter(acc_raw)
-    gyro_raw = of.apply_median_filter(gyro_raw)
-    gyro_raw = of.apply_butterworth_filter(gyro_raw)
+    acc_raw = of.apply_filter(signal=acc_raw, filter='median', window=5)
+    acc_raw = of.apply_filter(signal=acc_raw, filter='butterworth')
+    gyro_raw = of.apply_filter(signal=gyro_raw, filter='median', window=5)
+    gyro_raw = of.apply_filter(signal=gyro_raw, filter='butterworth')
     
     # Sample signals in fixed-width sliding windows
-    tAccXYZ, tBodyGyroXYZ = of.segment_signal(acc_raw, gyro_raw)
+    tAccXYZ = of.segment_signal(acc_raw, window_size=128, overlap_rate=0.5, res_type='dataframe')
+    tBodyGyroXYZ = of.segment_signal(gyro_raw, window_size=128, overlap_rate=0.5, res_type='dataframe')
     
     # Separate acceleration signal into body and gravity acceleration signal
     tBodyAccXYZ, tGravityAccXYZ = [], []
     for acc in tAccXYZ:
-        body_acc, grav_acc = of.remove_gravity(acc)
+        body_acc, grav_acc = of.separate_gravity(acc.copy())
         tBodyAccXYZ.append(body_acc)
         tGravityAccXYZ.append(grav_acc)
     
     # Obtain Jerk signals of body linear acceleration and angular velocity
     tBodyAccJerkXYZ, tBodyGyroJerkXYZ = [], []
     for body_acc, gyro in zip(tBodyAccXYZ, tBodyGyroXYZ):
-        body_acc_jerk = of.obtain_jerk_signal(body_acc)
-        gyro_jerk = of.obtain_jerk_signal(gyro)
+        body_acc_jerk = of.obtain_jerk_signal(body_acc.copy())
+        gyro_jerk = of.obtain_jerk_signal(gyro.copy())
 
         tBodyAccJerkXYZ.append(body_acc_jerk)
         tBodyGyroJerkXYZ.append(gyro_jerk)
@@ -41,11 +42,11 @@ def create_features(acc_raw, gyro_raw):
     # Calculate the magnitude of three-dimensional signals using the Euclidean norm
     tBodyAccMag, tGravityAccMag, tBodyAccJerkMag, tBodyGyroMag, tBodyGyroJerkMag = [], [], [], [], []
     for body_acc, grav_acc, body_acc_jerk, gyro, gyro_jerk in zip(tBodyAccXYZ, tGravityAccXYZ, tBodyAccJerkXYZ, tBodyGyroXYZ, tBodyGyroJerkXYZ):
-        body_acc_mag = of.obtain_magnitude(body_acc)
-        grav_acc_mag = of.obtain_magnitude(grav_acc)
-        body_acc_jerk_mag = of.obtain_magnitude(body_acc_jerk)
-        gyro_mag = of.obtain_magnitude(gyro)
-        gyro_jerk_mag = of.obtain_magnitude(gyro_jerk)
+        body_acc_mag = of.obtain_magnitude(body_acc.copy())
+        grav_acc_mag = of.obtain_magnitude(grav_acc.copy())
+        body_acc_jerk_mag = of.obtain_magnitude(body_acc_jerk.copy())
+        gyro_mag = of.obtain_magnitude(gyro.copy())
+        gyro_jerk_mag = of.obtain_magnitude(gyro_jerk.copy())
         
         tBodyAccMag.append(body_acc_mag)
         tGravityAccMag.append(grav_acc_mag)
@@ -54,24 +55,33 @@ def create_features(acc_raw, gyro_raw):
         tBodyGyroJerkMag.append(gyro_jerk_mag)
         
     # Obtain amplitude spectrum using Fast Fourier Transform (FFT).
-    fBodyAccXYZ, fBodyAccJerkXYZ, fBodyGyroXYZ, fBodyAccMag, fBodyAccJerkMag, fBodyGyroMag, fBodyGyroJerkMag = [], [], [] ,[] ,[] ,[], []
+    fBodyAccXYZAmp, fBodyAccJerkXYZAmp, fBodyGyroXYZAmp, fBodyAccMagAmp, fBodyAccJerkMagAmp, fBodyGyroMagAmp, fBodyGyroJerkMagAmp = [], [], [] ,[] ,[] ,[], []
+    # fBodyAccXYZPhs, fBodyAccJerkXYZPhs, fBodyGyroXYZPhs, fBodyAccMagPhs, fBodyAccJerkMagPhs, fBodyGyroMagPhs, fBodyGyroJerkMagPhs = [], [], [] ,[] ,[] ,[], []
     for body_acc, body_acc_jerk, gyro, body_acc_mag, body_acc_jerk_mag, gyro_mag, gyro_jerk_mag in \
         zip(tBodyAccXYZ, tBodyAccJerkXYZ, tBodyGyroXYZ, tBodyAccMag, tBodyAccJerkMag, tBodyGyroMag, tBodyGyroJerkMag):
-        body_acc_amp = of.obtain_amplitude_spectrum(body_acc)
-        body_acc_jerk_amp = of.obtain_amplitude_spectrum(body_acc_jerk)
-        gyro_amp = of.obtain_amplitude_spectrum(gyro)
-        body_acc_mag_amp =  of.obtain_amplitude_spectrum(body_acc_mag)
-        body_acc_jerk_mag_amp = of.obtain_amplitude_spectrum(body_acc_jerk_mag)
-        gyro_mag_amp = of.obtain_amplitude_spectrum(gyro_mag)
-        gyro_jerk_mag_amp = of.obtain_amplitude_spectrum(gyro_jerk_mag)
+        body_acc_amp, body_acc_phase = of.obtain_spectrum(body_acc.copy())
+        body_acc_jerk_amp, body_acc_jerk_phase = of.obtain_spectrum(body_acc_jerk.copy())
+        gyro_amp, gyro_phase = of.obtain_spectrum(gyro.copy())
+        body_acc_mag_amp, body_acc_mag_phase = of.obtain_spectrum(body_acc_mag.copy())
+        body_acc_jerk_mag_amp, body_acc_jerk_mag_phase = of.obtain_spectrum(body_acc_jerk_mag.copy())
+        gyro_mag_amp, gyro_mag_phase = of.obtain_spectrum(gyro_mag.copy())
+        gyro_jerk_mag_amp, gyro_jerk_mag_phase = of.obtain_spectrum(gyro_jerk_mag.copy())
         
-        fBodyAccXYZ.append(body_acc_amp)
-        fBodyAccJerkXYZ.append(body_acc_jerk_amp)
-        fBodyGyroXYZ.append(gyro_amp)
-        fBodyAccMag.append(body_acc_mag_amp)
-        fBodyAccJerkMag.append(body_acc_jerk_mag_amp)
-        fBodyGyroMag.append(gyro_mag_amp)
-        fBodyGyroJerkMag.append(gyro_jerk_mag_amp)
+        fBodyAccXYZAmp.append(body_acc_amp)
+        fBodyAccJerkXYZAmp.append(body_acc_jerk_amp)
+        fBodyGyroXYZAmp.append(gyro_amp)
+        fBodyAccMagAmp.append(body_acc_mag_amp)
+        fBodyAccJerkMagAmp.append(body_acc_jerk_mag_amp)
+        fBodyGyroMagAmp.append(gyro_mag_amp)
+        fBodyGyroJerkMagAmp.append(gyro_jerk_mag_amp)
+
+        """fBodyAccXYZPhs.append(body_acc_phase)
+        fBodyAccJerkXYZPhs.append(body_acc_jerk_phase)
+        fBodyGyroXYZPhs.append(gyro_phase)
+        fBodyAccMagPhs.append(body_acc_mag_phase)
+        fBodyAccJerkMagPhs.append(body_acc_jerk_mag_phase)
+        fBodyGyroMagPhs.append(gyro_mag_phase)
+        fBodyGyroJerkMagPhs.append(gyro_jerk_mag_phase)"""
     
     #  Following signals are obtained by implementing above functions.
     time_signals = [
@@ -86,24 +96,34 @@ def create_features(acc_raw, gyro_raw):
         tBodyGyroMag, 
         tBodyGyroJerkMag]
     freq_signals = [
-        fBodyAccXYZ,
-        fBodyAccJerkXYZ,
-        fBodyGyroXYZ,
-        fBodyAccMag,
-        fBodyAccJerkMag,
-        fBodyGyroMag,
-        fBodyGyroJerkMag]
+        fBodyAccXYZAmp,
+        fBodyAccJerkXYZAmp,
+        fBodyGyroXYZAmp,
+        fBodyAccMagAmp,
+        fBodyAccJerkMagAmp,
+        fBodyGyroMagAmp,
+        fBodyGyroJerkMagAmp
+    ]
+    """
+    fBodyAccXYZPhs,
+    fBodyAccJerkXYZPhs,
+    fBodyGyroXYZPhs,
+    fBodyAccMagPhs,
+    fBodyAccJerkMagPhs,
+    fBodyGyroMagPhs,
+    fBodyGyroJerkMagPhs]
+    """
     all_signals = time_signals + freq_signals
     
     # Calculate feature vectors by using signals
-    features = np.zeros((len(tBodyAccXYZ), 621))
+    features = np.empty((0, 621))  # 784
     
     for i in range(len(tBodyAccXYZ)):
         feature_vector = np.array([])
         
         # mean, std, mad, max, min, sma, energy, iqr, entropy
         for t_signal in all_signals:
-            sig = t_signal[i]
+            sig = t_signal[i].copy()
             mean = of.obtain_mean(sig)
             std = of.obtain_std(sig)
             mad = of.obtain_mad(sig)
@@ -117,19 +137,19 @@ def create_features(acc_raw, gyro_raw):
             
         # arCoeff
         for t_signal in time_signals:
-            sig = t_signal[i]
+            sig = t_signal[i].copy()
             arCoeff = of.obtain_arCoeff(sig)
             feature_vector = np.hstack((feature_vector, arCoeff))
         
         # correlation
         for t_signal in [tBodyAccXYZ, tGravityAccXYZ, tBodyAccJerkXYZ, tBodyGyroXYZ, tBodyGyroJerkXYZ]:
-            sig = t_signal[i]
+            sig = t_signal[i].copy()
             correlation = of.obtain_correlation(sig)
             feature_vector = np.hstack((feature_vector, correlation))
         
         # maxInds, meanFreq, skewness, kurtosis
         for t_signal in freq_signals:
-            sig = t_signal[i]
+            sig = t_signal[i].copy()
             maxInds = of.obtain_maxInds(sig)
             meanFreq = of.obtain_meanFreq(sig)
             skewness = of.obtain_skewness(sig)
@@ -138,7 +158,7 @@ def create_features(acc_raw, gyro_raw):
         
         # bandsEnergy
         for t_signal in [tBodyAccXYZ, tBodyAccJerkXYZ, tBodyGyroXYZ]:
-            sig = t_signal[i]
+            sig = t_signal[i].copy()
             bandsEnergy = of.obtain_bandsEnergy(sig)
             feature_vector = np.hstack((feature_vector, bandsEnergy))
         
@@ -166,13 +186,13 @@ def create_features(acc_raw, gyro_raw):
         feature_vector = np.hstack((feature_vector, tBodyAccWRTGravity, tBodyAccJerkWRTGravity, tBodyGyroWRTGravity, tBodyGyroJerkWRTGravity, \
                                    tXAxisAccWRTGravity, tYAxisAccWRTGravity, tZAxisAccWRTGravity))
 
-         # ECDF
+        # ECDF
         for t_signal in [tBodyAccXYZ, tBodyGyroXYZ]:
-            sig = t_signal[i]
+            sig = t_signal[i].copy()
             ecdf = of.obtain_ecdf_percentile(sig)
             feature_vector = np.hstack((feature_vector, ecdf))
 
-        features[i] = feature_vector
+        features = np.vstack((features, feature_vector))
     
     return features
 
@@ -186,8 +206,10 @@ def get_feature_names():
         'tBodyAccXYZ', 'tGravityAccXYZ', 'tBodyAccJerkXYZ', 'tBodyGyroXYZ', 'tBodyGyroJerkXYZ',
         'tBodyAccMag', 'tGravityAccMag', 'tBodyAccJerkMag', 'tBodyGyroMag', 'tBodyGyroJerkMag']
     freq_signal_names = [
-        'fBodyAccXYZ', 'fBodyAccJerkXYZ', 'fBodyGyroXYZ', 'fBodyAccMag', 'fBodyAccJerkMag',
-        'fBodyGyroMag', 'fBodyGyroJerkMag']
+        'fBodyAccXYZAmp', 'fBodyAccJerkXYZAmp', 'fBodyGyroXYZAmp', 'fBodyAccMagAmp', 'fBodyAccJerkMagAmp',
+        'fBodyGyroMagAmp', 'fBodyGyroJerkMagAmp',
+        """'fBodyAccXYZPhs', 'fBodyAccJerkXYZPhs', 'fBodyGyroXYZPhs', 'fBodyAccMagPhs', 'fBodyAccJerkMagPhs',
+        'fBodyGyroMagPhs', 'fBodyGyroJerkMagPhs'"""]
     all_signal_names = time_signal_names + freq_signal_names
     feature_names = []
     
