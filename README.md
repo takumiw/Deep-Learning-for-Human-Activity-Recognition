@@ -19,12 +19,12 @@ The dataset includes the types of movement amongst three static postures, three 
 To represent raw sensor signals as a feature vector, 621 features were created by preprocessing, fast Fourier transform (FFT), statistics, etc. Please refer to [generate_features_of_hapt.py](https://github.com/takumiw/Deep-Learning-for-Human-Activity-Recognition/blob/master/generate_features_of_hapt.py) for more details and implemented code.  
 The 621 features of the training dataset were trained on a LightGBM classifier by 5-fold cross-validation, and evaluated on the test dataset. Please refer to [models/lgbm.py](https://github.com/takumiw/Deep-Learning-for-Human-Activity-Recognition/blob/master/models/lgbm.py) for more details and implemented code.  
 The test scores below show very good results.
-* **Accuracy: 96.37%**
-* F1 score (macro avg. over six classes): 96.46
-* Precision score (macro avg. over six classes): 96.57
-* Recall score (macro avg. over six classes): 96.42    
+* **Accuracy: 96.33%**
+* F1 score (macro avg. over six classes): 96.43
+* Precision score (macro avg. over six classes): 96.55
+* Recall score (macro avg. over six classes): 96.38  
 The feature contribution explained by [SHAP](https://github.com/slundberg/shap) (SHapley Additive exPlanations) shows that time-domain features are especially effective for classifying activities.  
-![](https://user-images.githubusercontent.com/30923675/80086908-56235980-8595-11ea-8318-39b3f9ca3d8a.png)
+![](https://user-images.githubusercontent.com/30923675/82726488-76267400-9d1f-11ea-971f-d37b92daeeaa.png)
 
 <br>
 
