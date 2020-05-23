@@ -7,12 +7,15 @@ import json
 from collections import Counter
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shap
+shap.initjs()
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 import lightgbm as lgb
 
 sys.path.append('../')
 from logs.logger import log_evaluation
+from src.utils import color_generator
 
 # Logging settings
 EXEC_TIME = 'lgbm-' + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -28,6 +31,8 @@ with open('../configs/default.json', 'r') as f:
     params = json.load(f)['lgbm_params']
     logging.debug(f'params: {params}')
 
+# Load selected feature list
+# selected_feature = pd.read_pickle('../configs/selected_feature.pickle')
 
 def load_data():
     """
@@ -89,6 +94,8 @@ def load_data():
 
 
 X_train, X_test, y_train, y_test, subject_id_train, subject_id_test, label2activity_dict, activity2label_dict = load_data()
+# X_train = X_train[selected_feature]
+# X_test = X_test[selected_feature]
 logging.debug(f'X_train:{X_train.shape} X_test:{X_test.shape}')
 logging.debug(f'y_train:{y_train.shape} y_test:{y_test.shape}')
 
@@ -102,6 +109,7 @@ n_splits = 5
 cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=71)
 valid_preds = np.zeros((X_train.shape[0], 6))
 test_preds = np.zeros((n_splits, X_test.shape[0], 6))
+models = []
 importances_split = np.zeros((n_splits, X_train.shape[1]))
 importances_gain = np.zeros((n_splits, X_train.shape[1]))
 score_list = {
@@ -132,7 +140,8 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
             early_stopping_rounds=50,
             callbacks=callbacks
         )
-    
+
+    models.append(model)
     logging.debug(f'best iteration: {model.best_iteration}')
     logging.debug(f'training best score: {model.best_score["training"].items()}')
     logging.debug(f'valid_1 best score: {model.best_score["valid_1"].items()}')
@@ -179,8 +188,33 @@ for importances, mode in zip([importances_split, importances_gain], ['split', 'g
     plt.title(f'LightGBM Top 100 {mode} Feature Importance (avg over folds)')
     plt.tight_layout()
     plt.savefig(f'../logs/{EXEC_TIME}/importance_{mode}.png')
+    plt.clf()
 
 np.save(f'../logs/{EXEC_TIME}/valid_oof.npy', valid_preds)
 
 test_preds = np.mean(test_preds, axis=0)  # Averaging
 np.save(f'../logs/{EXEC_TIME}/test_oof.npy', test_preds)
+
+# Plot shap values over folds
+shap_values_list = []
+for i in range(n_splits):
+    explainer = shap.TreeExplainer(models[i], num_iteration=models[i].best_iteration, feature_perturbation='tree_path_dependent')
+    shap_value_oof = explainer.shap_values(X_train)
+    shap_values_list.append(shap_value_oof)
+
+shap_values = [np.zeros(shap_values_list[0][0].shape) for _ in range(6)]
+for shap_value_oof in shap_values_list:
+    for i in range(6):
+        shap_values[i] += shap_value_oof[i]
+
+for i in range(6):
+    shap_values[i] /= n_splits
+
+shap.summary_plot(
+    shap_values, X_train, max_display=100, 
+    class_names=['LAYING', 'WALKING', 'WALKING_UPSTAIRS', 'WALKING_DOWNSTAIRS', 'SITTING', 'STANDING'],
+    color=color_generator,
+    show=False
+)
+plt.savefig(f'../logs/{EXEC_TIME}/shap_summary_plot.png', bbox_inches='tight')
+plt.clf()
