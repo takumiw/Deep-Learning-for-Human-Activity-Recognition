@@ -18,13 +18,5 @@
         "verbose": -1,
         "nthread": -1,
         "seed": 42
-    },
-    "mlp_params": {
-        "num_layers": 3,
-        "dropout_rates": [0.5, 0.5, 0.5],
-        "num_units": [256, 128, 128],
-        "batch_size": 32,
-        "learning_rate": 0.0005,
-        "verbose": 2
     }
 }
