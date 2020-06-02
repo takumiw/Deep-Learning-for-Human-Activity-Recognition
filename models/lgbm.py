@@ -1,42 +1,55 @@
 # -*- coding:utf-8 -*-
-import os, logging, sys
+import json
+import logging
+import os
+import sys
+from collections import Counter
 from datetime import datetime
+
+import lightgbm as lgb
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import json
-from collections import Counter
-import matplotlib.pyplot as plt
 import seaborn as sns
 import shap
-shap.initjs()
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    f1_score,
+    log_loss,
+    precision_score,
+    recall_score,
+)
 from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
-import lightgbm as lgb
 
-sys.path.append('../')
 from logs.logger import log_evaluation
 from src.utils import color_generator
 
+shap.initjs()
+
+sys.path.append("../")
+
 # Logging settings
-EXEC_TIME = 'lgbm-' + datetime.now().strftime("%Y%m%d-%H%M%S")
-os.makedirs(f'../logs/{EXEC_TIME}', exist_ok=True)  # Create log directory
-logging.basicConfig(filename=f'../logs/{EXEC_TIME}/{EXEC_TIME}.log', level=logging.DEBUG)
-mpl_logger = logging.getLogger('matplotlib')  # Suppress matplotlib logging 
+EXEC_TIME = "lgbm-" + datetime.now().strftime("%Y%m%d-%H%M%S")
+os.makedirs(f"../logs/{EXEC_TIME}", exist_ok=True)  # Create log directory
+logging.basicConfig(filename=f"../logs/{EXEC_TIME}/{EXEC_TIME}.log", level=logging.DEBUG)
+mpl_logger = logging.getLogger("matplotlib")  # Suppress matplotlib logging
 mpl_logger.setLevel(logging.WARNING)
-logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))  # Handle logging to both logging and stdout.
-logging.debug(f'../logs/{EXEC_TIME}/{EXEC_TIME}.log')
+# Handle logging to both logging and stdout.
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+logging.debug(f"../logs/{EXEC_TIME}/{EXEC_TIME}.log")
 
 # Load hyper-parameters
-with open('../configs/default.json', 'r') as f:
-    params = json.load(f)['lgbm_params']
-    logging.debug(f'params: {params}')
+with open("../configs/default.json", "r") as f:
+    params = json.load(f)["lgbm_params"]
+    logging.debug(f"params: {params}")
 
 # Load selected feature list
 # selected_feature = pd.read_pickle('../configs/selected_feature.pickle')
 
+
 def load_data():
-    """
-    Load dataset.
+    """Load dataset.
     The following six classes are included in this experiment.
         - WALKING, WALKING_UPSTAIRS, WALKING_DOWNSTAIRS, SITTING, STANDING, LAYING
     The following transition classes are excluded.
@@ -52,23 +65,30 @@ def load_data():
         label2activity_dict (dict): key:label_id, value: title_of_class
         activity2label_dict (dict): key:title_of_class, value: label_id
     """
-    root = '../data/hapt_data_set/'
-    X_train = pd.read_pickle('../data/my_dataset/X_train.pickle')
-    y_train = pd.DataFrame(np.load('../data/my_dataset/y_train.npy'))
-    subject_id_train = pd.read_table(root + 'Train/subject_id_train.txt', sep=' ', header=None)
+    root = "../data/hapt_data_set/"
+    X_train = pd.read_pickle("../data/my_dataset/X_train.pickle")
+    y_train = pd.DataFrame(np.load("../data/my_dataset/y_train.npy"))
+    subject_id_train = pd.read_table(root + "Train/subject_id_train.txt", sep=" ", header=None)
 
-    X_test = pd.read_pickle('../data/my_dataset/X_test.pickle')
-    y_test = pd.DataFrame(np.load('../data/my_dataset/y_test.npy'))
-    subject_id_test = pd.read_table(root + 'Test/subject_id_test.txt', sep=' ', header=None)
+    X_test = pd.read_pickle("../data/my_dataset/X_test.pickle")
+    y_test = pd.DataFrame(np.load("../data/my_dataset/y_test.npy"))
+    subject_id_test = pd.read_table(root + "Test/subject_id_test.txt", sep=" ", header=None)
 
-    activity_labels = pd.read_table(root + 'activity_labels.txt', header=None).values.flatten()
+    activity_labels = pd.read_table(root + "activity_labels.txt", header=None).values.flatten()
     activity_labels = np.array([label.rstrip().split() for label in activity_labels])
     label2activity_dict, activity2label_dict = {}, {}
     for label, activity in activity_labels:
         label2activity_dict[int(label)] = activity
         activity2label_dict[activity] = int(label)
 
-    class_names_inc = ['WALKING', 'WALKING_UPSTAIRS', 'WALKING_DOWNSTAIRS', 'SITTING', 'STANDING', 'LAYING']
+    class_names_inc = [
+        "WALKING",
+        "WALKING_UPSTAIRS",
+        "WALKING_DOWNSTAIRS",
+        "SITTING",
+        "STANDING",
+        "LAYING",
+    ]
     class_ids_inc = [activity2label_dict[c] for c in class_names_inc]
 
     idx_train = y_train[y_train[0].isin(class_ids_inc)].index
@@ -90,19 +110,41 @@ def load_data():
     y_train = y_train.replace(6, 0)
     y_test = y_test.replace(6, 0)
 
-    return X_train, X_test, y_train, y_test, subject_id_train, subject_id_test, label2activity_dict, activity2label_dict
+    return (
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        subject_id_train,
+        subject_id_test,
+        label2activity_dict,
+        activity2label_dict,
+    )
 
 
-X_train, X_test, y_train, y_test, subject_id_train, subject_id_test, label2activity_dict, activity2label_dict = load_data()
+(
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    subject_id_train,
+    subject_id_test,
+    label2activity_dict,
+    activity2label_dict,
+) = load_data()
 # X_train = X_train[selected_feature]
 # X_test = X_test[selected_feature]
-logging.debug(f'X_train:{X_train.shape} X_test:{X_test.shape}')
-logging.debug(f'y_train:{y_train.shape} y_test:{y_test.shape}')
+logging.debug(f"X_train:{X_train.shape} X_test:{X_test.shape}")
+logging.debug(f"y_train:{y_train.shape} y_test:{y_test.shape}")
 
-for c, mode in zip([Counter(y_train.values.flatten()), Counter(y_test.values.flatten())], ['train', 'test']):
-    logging.debug(f'{mode} samples')
+for c, mode in zip(
+    [Counter(y_train.values.flatten()), Counter(y_test.values.flatten())], ["train", "test"]
+):
+    logging.debug(f"{mode} samples")
     for label_id in range(6):
-        logging.debug(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]} ({c[label_id]/len(c):.04})')
+        logging.debug(
+            f"{label2activity_dict[label_id]} ({label_id}): {c[label_id]} ({c[label_id]/len(c):.04})"
+        )
 
 # Split data by preserving the percentage of samples for each class.
 n_splits = 5
@@ -113,12 +155,12 @@ models = []
 importances_split = np.zeros((n_splits, X_train.shape[1]))
 importances_gain = np.zeros((n_splits, X_train.shape[1]))
 score_list = {
-    'logloss': {'train': [], 'valid': [], 'test': []},
-    'accuracy': {'train': [], 'valid': [], 'test': []},
-    'precision': {'train': [], 'valid': [], 'test': []},
-    'recall': {'train': [], 'valid': [], 'test': []},
-    'f1': {'train': [], 'valid': [], 'test': []},
-    }
+    "logloss": {"train": [], "valid": [], "test": []},
+    "accuracy": {"train": [], "valid": [], "test": []},
+    "precision": {"train": [], "valid": [], "test": []},
+    "recall": {"train": [], "valid": [], "test": []},
+    "f1": {"train": [], "valid": [], "test": []},
+}
 
 for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train)):
     X_tr = X_train.loc[train_index, :]
@@ -129,20 +171,21 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
     lgb_train = lgb.Dataset(X_tr, y_tr)
     lgb_eval = lgb.Dataset(X_val, y_val, reference=lgb_train)
 
-    logger = logging.getLogger('main')
+    logger = logging.getLogger("main")
     callbacks = [log_evaluation(logger, period=50)]
-    
+
     model = lgb.train(
-            params, lgb_train,
-            valid_sets=[lgb_train, lgb_eval],
-            verbose_eval=False,
-            num_boost_round=50000,
-            early_stopping_rounds=50,
-            callbacks=callbacks
-        )
+        params,
+        lgb_train,
+        valid_sets=[lgb_train, lgb_eval],
+        verbose_eval=False,
+        num_boost_round=50000,
+        early_stopping_rounds=50,
+        callbacks=callbacks,
+    )
 
     models.append(model)
-    logging.debug(f'best iteration: {model.best_iteration}')
+    logging.debug(f"best iteration: {model.best_iteration}")
     logging.debug(f'training best score: {model.best_score["training"].items()}')
     logging.debug(f'valid_1 best score: {model.best_score["valid_1"].items()}')
 
@@ -152,53 +195,61 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
 
     valid_preds[valid_index] = pred_val
     test_preds[fold_id] = pred_test
-    importances_split[fold_id] = model.feature_importance(importance_type='split')
-    importances_gain[fold_id] = model.feature_importance(importance_type='gain')
+    importances_split[fold_id] = model.feature_importance(importance_type="split")
+    importances_gain[fold_id] = model.feature_importance(importance_type="gain")
 
-    score_list['logloss']['train'].append(model.best_score['training']['multi_logloss'])
-    score_list['logloss']['valid'].append(model.best_score['valid_1']['multi_logloss'])
-    score_list['logloss']['test'].append(log_loss(y_test, pred_test))
+    score_list["logloss"]["train"].append(model.best_score["training"]["multi_logloss"])
+    score_list["logloss"]["valid"].append(model.best_score["valid_1"]["multi_logloss"])
+    score_list["logloss"]["test"].append(log_loss(y_test, pred_test))
 
-    for pred, y, mode in zip([pred_tr, pred_val, pred_test], [y_tr, y_val, y_test], ['train', 'valid', 'test']):
+    for pred, y, mode in zip(
+        [pred_tr, pred_val, pred_test], [y_tr, y_val, y_test], ["train", "valid", "test"]
+    ):
         pred = pred.argmax(axis=1)
         acc = accuracy_score(y, pred)
-        prec = precision_score(y, pred, average='macro')
-        recall = recall_score(y, pred, average='macro')
-        f1 = f1_score(y, pred, average='macro')
+        prec = precision_score(y, pred, average="macro")
+        recall = recall_score(y, pred, average="macro")
+        f1 = f1_score(y, pred, average="macro")
 
-        score_list['accuracy'][mode].append(acc)
-        score_list['precision'][mode].append(prec)
-        score_list['recall'][mode].append(recall)
-        score_list['f1'][mode].append(f1)
-        logging.debug(f'{mode} confusion matrix\n{np.array2string(confusion_matrix(y, pred))}')
-    
-logging.debug('---Cross Validation Scores---')
-for mode in ['train', 'valid', 'test']:
-    logging.debug(f'---{mode}---')
-    for metric in ['logloss', 'accuracy', 'precision', 'recall', 'f1']:
-        logging.debug(f'{metric}\t{np.mean(score_list[metric][mode])}\t{score_list[metric][mode]}')
+        score_list["accuracy"][mode].append(acc)
+        score_list["precision"][mode].append(prec)
+        score_list["recall"][mode].append(recall)
+        score_list["f1"][mode].append(f1)
+        logging.debug(f"{mode} confusion matrix\n{np.array2string(confusion_matrix(y, pred))}")
+
+logging.debug("---Cross Validation Scores---")
+for mode in ["train", "valid", "test"]:
+    logging.debug(f"---{mode}---")
+    for metric in ["logloss", "accuracy", "precision", "recall", "f1"]:
+        logging.debug(f"{metric}\t{np.mean(score_list[metric][mode])}\t{score_list[metric][mode]}")
 
 # Plot feature importance
-for importances, mode in zip([importances_split, importances_gain], ['split', 'gain']):
+for importances, mode in zip([importances_split, importances_gain], ["split", "gain"]):
     importance = np.mean(importances, axis=0)
-    importance_df = pd.DataFrame({'Feature': X_train.columns, 'Value': importance})
+    importance_df = pd.DataFrame({"Feature": X_train.columns, "Value": importance})
 
     plt.figure(figsize=(16, 20))
-    sns.barplot(x="Value", y="Feature", data=importance_df.sort_values(by="Value", ascending=False)[:100])
-    plt.title(f'LightGBM Top 100 {mode} Feature Importance (avg over folds)')
+    sns.barplot(
+        x="Value", y="Feature", data=importance_df.sort_values(by="Value", ascending=False)[:100]
+    )
+    plt.title(f"LightGBM Top 100 {mode} Feature Importance (avg over folds)")
     plt.tight_layout()
-    plt.savefig(f'../logs/{EXEC_TIME}/importance_{mode}.png')
+    plt.savefig(f"../logs/{EXEC_TIME}/importance_{mode}.png")
     plt.clf()
 
-np.save(f'../logs/{EXEC_TIME}/valid_oof.npy', valid_preds)
+np.save(f"../logs/{EXEC_TIME}/valid_oof.npy", valid_preds)
 
 test_preds = np.mean(test_preds, axis=0)  # Averaging
-np.save(f'../logs/{EXEC_TIME}/test_oof.npy', test_preds)
+np.save(f"../logs/{EXEC_TIME}/test_oof.npy", test_preds)
 
 # Plot shap values over folds
 shap_values_list = []
 for i in range(n_splits):
-    explainer = shap.TreeExplainer(models[i], num_iteration=models[i].best_iteration, feature_perturbation='tree_path_dependent')
+    explainer = shap.TreeExplainer(
+        models[i],
+        num_iteration=models[i].best_iteration,
+        feature_perturbation="tree_path_dependent",
+    )
     shap_value_oof = explainer.shap_values(X_train)
     shap_values_list.append(shap_value_oof)
 
@@ -211,10 +262,19 @@ for i in range(6):
     shap_values[i] /= n_splits
 
 shap.summary_plot(
-    shap_values, X_train, max_display=100, 
-    class_names=['LAYING', 'WALKING', 'WALKING_UPSTAIRS', 'WALKING_DOWNSTAIRS', 'SITTING', 'STANDING'],
+    shap_values,
+    X_train,
+    max_display=100,
+    class_names=[
+        "LAYING",
+        "WALKING",
+        "WALKING_UPSTAIRS",
+        "WALKING_DOWNSTAIRS",
+        "SITTING",
+        "STANDING",
+    ],
     color=color_generator,
-    show=False
+    show=False,
 )
-plt.savefig(f'../logs/{EXEC_TIME}/shap_summary_plot.png', bbox_inches='tight')
+plt.savefig(f"../logs/{EXEC_TIME}/shap_summary_plot.png", bbox_inches="tight")
 plt.clf()
