@@ -181,3 +181,4 @@ dmypy.json
 data
 logs/*
 features
+.venv/
