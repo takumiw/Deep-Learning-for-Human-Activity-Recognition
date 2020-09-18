@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblzma-dev \
     vim
 
+ENV TZ Asia/Tokyo
+
 WORKDIR /root/
 RUN wget https://www.python.org/ftp/python/3.8.5/Python-3.8.5.tar.xz \
     && tar xvf Python-3.8.5.tar.xz \
