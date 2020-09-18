@@ -1,16 +1,18 @@
-# -*- coding:utf-8 -*-
+from typing import List
+
 import numpy as np
+import pandas as pd
 
-from src.preprocessing import Preprocess  # Load class for obtaining features
+from src.data_prep.preprocessing import Preprocess  # Load class for obtaining features
 
 
-def create_features(acc_raw, gyro_raw):
+def create_features(acc_raw: pd.DataFrame, gyro_raw: pd.DataFrame) -> np.ndarray:
     """Create features from raw acceleration and gyroscope sensor data
     Args:
-        acc_raw (pandas.DataFrame): Raw 3-axial accelerometer signals with columns denoting axes.
-        gyro_raw (pandas.DataFrame): Raw 3-axial gyroscope signals with columns denoting axes.
+        acc_raw (pd.DataFrame): Raw 3-axial accelerometer signals with columns denoting axes.
+        gyro_raw (pd.DataFrame): Raw 3-axial gyroscope signals with columns denoting axes.
     Returns:
-        features (pandas.DataFrame): Created features corresponding args with columns denoting feature names.
+        features (np.ndarray): Created features corresponding args with columns denoting feature names.
     """
     of = Preprocess(fs=50)  # Create an instance.
 
@@ -259,10 +261,10 @@ def create_features(acc_raw, gyro_raw):
     return np.array(features)
 
 
-def get_feature_names():
+def get_feature_names() -> List[str]:
     """Get feature names
     Returns:
-        feature_names (list): Title of features
+        feature_names (List[str]): Title of features
     """
     time_signal_names = [
         "tBodyAccXYZ",
