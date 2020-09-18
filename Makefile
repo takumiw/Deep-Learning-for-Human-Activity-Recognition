@@ -44,4 +44,4 @@ clean-test:
 clean: clean-pyc clean-test
 
 mypy:
-	poetry run mypy ./../*.py --strict --ignore-missing-imports --allow-subclassing-any
+	poetry run mypy ./**/*.py --strict --ignore-missing-imports --allow-subclassing-any
