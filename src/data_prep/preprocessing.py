@@ -1,8 +1,8 @@
-# -*- coding:utf-8 -*-
-import logging
+from decimal import ROUND_HALF_UP, Decimal
+from logging import getLogger
 import math
 import traceback
-from decimal import ROUND_HALF_UP, Decimal
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -13,23 +13,27 @@ from scipy.signal import butter, filtfilt
 from statsmodels.distributions.empirical_distribution import ECDF
 from statsmodels.regression.linear_model import burg
 
+logger = getLogger(__name__)
+
 
 class Preprocess:
-    def __init__(self, fs=50):
+    def __init__(self, fs: int = 50) -> None:
         """
         Args:
             fs (int, default=50): Sampling frequency of sensor signals
         """
         self.fs = fs
 
-    def apply_filter(self, signal, filter="median", window=5):
+    def apply_filter(
+        self, signal: pd.DataFrame, filter: str = "median", window: int = 5
+    ) -> pd.DataFrame:
         """A denosing filter is applied to remove noise in signals.
         Args:
-            signal (pandas.DataFrame): Raw signal
-            filter (str, default:'median'): Filter name is any of 'mean', 'median', or 'butterworth'
-            window (int, default:5): Length of filter
+            signal (pd.DataFrame): Raw signal
+            filter (str, default='median'): Filter name is chosen from 'mean', 'median', or 'butterworth'
+            window (int, default=5): Length of filter
         Returns:
-            signal (pandas.DataFrame): Filtered signal
+            signal (pd.DataFrame): Filtered signal
         See Also:
             'butterworth' applies a 3rd order low-pass Butterworth filter with a corner frequency of 20 Hz.
         """
@@ -46,23 +50,29 @@ class Preprocess:
             try:
                 raise ValueError("Not defined filter. See Args.")
             except ValueError:
-                logging.error(traceback.format_exc())
+                logger.error(traceback.format_exc())
 
         return signal
 
-    def normalize(self, signal):
+    def normalize(self, signal: pd.DataFrame) -> pd.DataFrame:
         """Apply normalization
         Args:
-            signal (pandas.DataFrame): Raw signal
+            signal (pd.DataFrame): Raw signal
         Returns:
-            signal (pandas.DataFrame): Normalized signal
+            signal (pd.DataFrame): Normalized signal
         """
         df_mean = signal.mean()
         df_std = signal.std()
         signal = (signal - df_mean) / df_std
         return signal
 
-    def segment_signal(self, signal, window_size=128, overlap_rate=0.5, res_type="dataframe"):
+    def segment_signal(
+        self,
+        signal: pd.DataFrame,
+        window_size: int = 128,
+        overlap_rate: int = 0.5,
+        res_type: str = "dataframe",
+    ) -> List[pd.DataFrame]:
         """Sample sensor signals in fixed-width sliding windows of 2.56 sec and 50% overlap (128 readings/window).
         Args:
             signal (pandas.DataFrame): Raw signal
@@ -85,15 +95,15 @@ class Preprocess:
 
         return signal_seg
 
-    def separate_gravity(self, acc):
+    def separate_gravity(self, acc: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Separate acceleration signal into body and gravity acceleration signal.
         Another low pass Butterworth filter with a corner frequency of 0.3 Hz is applied.
         Args:
-            acc (pandas.DataFrame): Segmented acceleration signal
+            acc (pd.DataFrame): Segmented acceleration signal
         Returns:
-            acc_body (pandas.DataFrame): Body acceleration signal
-            acc_grav (pandas.DataFrame): Gravity acceleration signal
+            acc_body (pd.DataFrame): Body acceleration signal
+            acc_grav (pd.DataFrame): Gravity acceleration signal
         """
         fc = 0.3  # cutoff frequency
         w = fc / (self.fs / 2)  # Normalize the frequency
@@ -106,12 +116,12 @@ class Preprocess:
         acc_body = acc - acc_grav
         return acc_body, acc_grav
 
-    def obtain_jerk_signal(self, signal):
+    def obtain_jerk_signal(self, signal: pd.DataFrame) -> pd.DataFrame:
         """Derive signal to obtain Jerk signals
         Args:
-            signal (pandas.DataFrame)
+            signal (pd.DataFrame)
         Returns:
-            jerk_signal (pandas.DataFrame):
+            jerk_signal (pd.DataFrame):
         """
         jerk_signal = signal.diff(periods=1)  # Calculate difference
         jerk_signal.iloc[0] = jerk_signal.iloc[1]  # Fillna

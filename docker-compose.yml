@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+    practice:
+        build: 
+            context: .
+            dockerfile: Dockerfile_gpu
+        image: dl-for-har:latest
+        volumes:
+            - .:/work
+        stdin_open: true
+        tty: true
+        working_dir: /work
+        entrypoint: "/bin/bash"
