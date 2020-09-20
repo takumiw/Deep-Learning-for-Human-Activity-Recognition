@@ -14,9 +14,21 @@
         "feature_fraction": 1.0,
         "reg_alpha": 0.0,
         "reg_lambda": 0.0,
-        "learning_rate": 0.01,
+        "learning_rate": 0.1,
         "verbose": -1,
         "nthread": -1,
         "seed": 42
+    },
+    "cnn_params": {
+        "batch_size": 128,
+        "epochs": 10000,
+        "lr": 0.001,
+        "verbose": 2
+    },
+    "deep_conv_lstm_params": {
+        "batch_size": 128,
+        "epochs": 10000,
+        "lr": 0.001,
+        "verbose": 2
     }
 }

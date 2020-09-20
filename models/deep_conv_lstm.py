@@ -1,4 +1,4 @@
-"""Functions for training Convolutional Neural Network (CNN)"""
+"""Functions for training Deep Convolutional LSTM (DeepConvLSTM)"""
 from logging import getLogger
 import os
 from typing import Any, Dict, List, Tuple
@@ -8,7 +8,7 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten, Conv2D
+from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten, Conv2D, LSTM, Reshape
 from tensorflow.keras import optimizers
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras import backend as K
@@ -27,7 +27,7 @@ def train_and_predict(
     X_test: np.ndarray,
     y_train: np.ndarray,
     y_valid: np.ndarray,
-    cnn_params: Dict[str, Any],
+    dcl_params: Dict[str, Any],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Any]:
     """CNNモデルを学習する
     Args:
@@ -47,8 +47,8 @@ def train_and_predict(
     y_valid = keras.utils.to_categorical(y_valid, 6)
     y_test = keras.utils.to_categorical(y_test, 6)
     """
-    model = create_baseline(
-        input_shape=X_train.shape[1:], output_dim=y_train.shape[1], lr=cnn_params["lr"]
+    model = create_model(
+        input_shape=X_train.shape[1:], output_dim=y_train.shape[1], lr=dcl_params["lr"]
     )
     plot_model(model, path=f"{LOG_DIR}/model.png")
 
@@ -58,9 +58,9 @@ def train_and_predict(
     fit = model.fit(
         X_train,
         y_train,
-        batch_size=cnn_params["batch_size"],
-        epochs=cnn_params["epochs"],
-        verbose=cnn_params["verbose"],
+        batch_size=dcl_params["batch_size"],
+        epochs=dcl_params["epochs"],
+        verbose=dcl_params["verbose"],
         validation_data=(X_valid, y_valid),
         callbacks=callbacks,
     )
@@ -85,7 +85,7 @@ def train_and_predict(
     return pred_train, pred_valid, pred_test, model
 
 
-def create_baseline(
+def create_model(
     input_shape: Tuple[int, int, int] = (128, 6, 1), output_dim: int = 6, lr: float = 0.001
 ) -> Any:
     model = Sequential()
@@ -97,12 +97,10 @@ def create_baseline(
     model.add(Activation("relu"))
     model.add(Conv2D(64, kernel_size=(5, 1)))
     model.add(Activation("relu"))
-    model.add(Flatten())
-    model.add(Dense(128))
-    model.add(Activation("relu"))
+    model.add(Reshape((112, 6 * 64)))
+    model.add(LSTM(128, activation="tanh", return_sequences=True))
     model.add(Dropout(0.5, seed=0))
-    model.add(Dense(128))
-    model.add(Activation("relu"))
+    model.add(LSTM(128, activation="tanh"))
     model.add(Dropout(0.5, seed=1))
     model.add(Dense(output_dim))
     model.add(Activation("softmax"))
@@ -115,7 +113,7 @@ def create_baseline(
 def create_callback(model: Any, path_chpt: str) -> List[Any]:
     """callbackの設定
     Args:
-        model (tensorflow.python.keras.engine.sequential.Sequential): CNNモデル
+        model (tensorflow.python.keras.engine.sequential.Sequential): モデル
         path_f1_history (str): f1の経過を出力するパス
     Returns:
         callbacks (List[Any]): Callbackのリスト

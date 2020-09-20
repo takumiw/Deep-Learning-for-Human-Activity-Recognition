@@ -3,6 +3,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 from collections import Counter
 from logging import getLogger
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import shap
+from tensorflow import keras
 
 shap.initjs()
 logger = getLogger(__name__)
@@ -151,5 +153,35 @@ def plot_confusion_matrix(
         ax[i].set_title(f"Normalized confusion matrix - {mode}")
 
     plt.tight_layout()
+    fig.savefig(path)
+    plt.close()
+
+
+def plot_model(model: Any, path: str) -> None:
+    if not os.path.isfile(path):
+        keras.utils.plot_model(model, to_file=path, show_shapes=True)
+
+
+def plot_learning_history(fit: Any, path: str = "history.png") -> None:
+    """Plot learning curve
+    Args:
+        fit (Any): History object
+        path (str, default="history.png")
+    """
+    fig, (axL, axR) = plt.subplots(ncols=2, figsize=(10, 4))
+    axL.plot(fit.history["loss"], label="train")
+    axL.plot(fit.history["val_loss"], label="validation")
+    axL.set_title("Loss")
+    axL.set_xlabel("epoch")
+    axL.set_ylabel("loss")
+    axL.legend(loc="upper right")
+
+    axR.plot(fit.history["accuracy"], label="train")
+    axR.plot(fit.history["val_accuracy"], label="validation")
+    axR.set_title("Accuracy")
+    axR.set_xlabel("epoch")
+    axR.set_ylabel("accuracy")
+    axR.legend(loc="upper right")
+
     fig.savefig(path)
     plt.close()
