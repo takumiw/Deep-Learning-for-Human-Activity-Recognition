@@ -1,4 +1,4 @@
-"""Functions for tarining Light GBM"""
+"""Functions for tarining Light GBM (LGBM)"""
 
 from logging import getLogger
 from typing import Any, Dict, Optional, Tuple, Union

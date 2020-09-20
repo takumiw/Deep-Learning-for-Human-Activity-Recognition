@@ -3,6 +3,7 @@ import json
 from logging import basicConfig, getLogger, StreamHandler, DEBUG, WARNING
 import os
 import sys
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -39,22 +40,11 @@ logger = getLogger(__name__)
 logger.setLevel(DEBUG)
 logger.debug(f"{LOG_DIR}/{EXEC_TIME}.log")
 
-(
-    X_train,
-    X_test,
-    y_train,
-    y_test,
-    subject_id_train,
-    subject_id_test,
-    label2act,
-    act2label,
-) = load_features()
+X_train, X_test, y_train, y_test, label2act, act2label = load_features()
 logger.debug(f"{X_train.shape=} {X_test.shape=}")
 logger.debug(f"{y_train.shape=} {y_test.shape=}")
 
-check_class_balance(
-    y_train.values.flatten(), y_test.values.flatten(), label2act=label2act
-)
+check_class_balance(y_train.values.flatten(), y_test.values.flatten(), label2act=label2act)
 
 # Split data by preserving the percentage of samples for each class.
 n_splits = 5
@@ -62,7 +52,7 @@ cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=71)
 valid_preds = np.zeros((X_train.shape[0], 6))
 test_preds = np.zeros((n_splits, X_test.shape[0], 6))
 models = []
-scores = {
+scores: Dict[str, Dict[str, List[Any]]] = {
     "logloss": {"train": [], "valid": [], "test": []},
     "accuracy": {"train": [], "valid": [], "test": []},
     "precision": {"train": [], "valid": [], "test": []},
@@ -105,7 +95,6 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
         scores["precision"][mode].append(precision_score(y, pred, average="macro"))
         scores["recall"][mode].append(recall_score(y, pred, average="macro"))
         scores["f1"][mode].append(f1_score(y, pred, average="macro"))
-        # logger.debug(f"{mode} confusion matrix\n{np.array2string(confusion_matrix(y, pred))}")
         scores["cm"][mode].append(confusion_matrix(y, pred, normalize="true"))
         scores["per_class_f1"][mode].append(f1_score(y, pred, average=None))
 
