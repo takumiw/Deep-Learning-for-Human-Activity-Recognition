@@ -1,196 +1,129 @@
-# -*- coding:utf-8 -*-
-import os, logging, sys
-from datetime import datetime
+"""Functions for training Convolutional Neural Network (CNN)"""
+from logging import getLogger
+import os
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
-from collections import Counter
-import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
-from sklearn.model_selection import train_test_split
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten, Conv2D
+from tensorflow.keras import optimizers
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras import backend as K
 
-import keras
-from keras.models import Sequential, Model, load_model
-from keras.layers import Dense, Activation, Dropout, Flatten, Conv2D, MaxPooling2D
-from keras.utils import np_utils, plot_model
-from keras import backend as K
-from keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+from src.utils import plot_learning_history, plot_model
 
-# Suppress warnings 
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
-
-EXEC_TIME = 'cnn-' + datetime.now().strftime("%Y%m%d-%H%M%S")
-os.makedirs(f'../logs/{EXEC_TIME}-history', exist_ok=True)
-
-logging.basicConfig(filename=f'../logs/{EXEC_TIME}-history/{EXEC_TIME}.log', level=logging.DEBUG)
-mpl_logger = logging.getLogger('matplotlib')
-mpl_logger.setLevel(logging.WARNING)
-logging.debug(f'../logs/{EXEC_TIME}-history/{EXEC_TIME}.log')
+tf.random.set_seed(0)
+logger = getLogger(__name__)
 
 
-def load_data():
-    """
-    Load dataset.
-    The following six classes are included in this experiment.
-        - WALKING, WALKING_UPSTAIRS, WALKING_DOWNSTAIRS, SITTING, STANDING, LAYING
-    The following transition classes are excluded.
-        - STAND_TO_SIT, SIT_TO_STAND, SIT_TO_LIE, LIE_TO_SIT, STAND_TO_LIE, and LIE_TO_STAND
+def train_and_predict(
+    LOG_DIR: str,
+    fold_id: int,
+    X_train: np.ndarray,
+    X_valid: np.ndarray,
+    X_test: np.ndarray,
+    y_train: np.ndarray,
+    y_valid: np.ndarray,
+    cnn_params: Dict[str, Any],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Any]:
+    """CNNモデルを学習する
     Args:
+        X_train, X_valid, X_test: input signals of shape (num_samples, window_size, num_channels)
+        y_train, y_valid, y_test: label-encoded labels
     Returns:
-        X_train (DataFrame): 
-        X_test (DataFrame):
-        y_train (DataFrame): 
-        y_test (DataFrame): 
-        label2activity_dict (dict): key:label_id, value: title_of_class
-        activity2label_dict (dict): key:title_of_class, value: label_id
+        pred_train: train prediction
+        pred_valid: train prediction
+        pred_test: train prediction
+        model: trained best model
     """
-    root = '../data/my_dataset/'
-    X_train = np.load(root + 'Raw_X_train.npy')
-    y_train = pd.read_table(root + 'y_train.txt', sep=' ', header=None)
+    """X_train = X_train.reshape(*X_train.shape, 1)  # (x, 128, 6) -> (x, 128, 6, 1)
+    X_valid = X_valid.reshape(*X_valid.shape, 1)  # (x, 128, 6) -> (x, 128, 6, 1)
+    X_test = X_test.reshape(*X_test.shape, 1)  # (x, 128, 6) -> (x, 128, 6, 1)
 
-    X_test = np.load(root + 'Raw_X_test.npy')
-    y_test = pd.read_table(root + 'y_test.txt', sep=' ', header=None)
+    y_train = keras.utils.to_categorical(y_train, 6)
+    y_valid = keras.utils.to_categorical(y_valid, 6)
+    y_test = keras.utils.to_categorical(y_test, 6)
+    """
+    model = create_baseline(
+        input_shape=X_train.shape[1:], output_dim=y_train.shape[1], lr=cnn_params["lr"]
+    )
+    plot_model(model, path=f"{LOG_DIR}/model.png")
 
-    activity_labels = pd.read_table('../data/hapt_data_set/activity_labels.txt', header=None).values.flatten()
-    activity_labels = np.array([label.rstrip().split() for label in activity_labels])
-    label2activity_dict, activity2label_dict = {}, {}
-    for label, activity in activity_labels:
-        label2activity_dict[int(label)] = activity
-        activity2label_dict[activity] = int(label)
+    # 各種callbackの設定
+    callbacks = create_callback(model=model, path_chpt=f"{LOG_DIR}/trained_model_fold{fold_id}.h5")
 
-    class_names_inc = ['WALKING', 'WALKING_UPSTAIRS', 'WALKING_DOWNSTAIRS', 'SITTING', 'STANDING', 'LAYING']
-    class_ids_inc = [activity2label_dict[c] for c in class_names_inc]
+    fit = model.fit(
+        X_train,
+        y_train,
+        batch_size=cnn_params["batch_size"],
+        epochs=cnn_params["epochs"],
+        verbose=cnn_params["verbose"],
+        validation_data=(X_valid, y_valid),
+        callbacks=callbacks,
+    )
 
-    # Replace 6 to 0
-    rep_activity = label2activity_dict[6]
-    label2activity_dict[0] = rep_activity
-    label2activity_dict.pop(6)
-    activity2label_dict[rep_activity] = 0
+    # 学習曲線をプロットする
+    plot_learning_history(fit=fit, path=f"{LOG_DIR}/hitsoty_fold{fold_id}.png")
 
-    y_train = y_train.replace(6, 0)
-    y_test = y_test.replace(6, 0)
+    # Logging training history every 10 epochs
+    df = pd.DataFrame(fit.history)
+    index = np.arange(0, len(df), 10)
+    logger.debug(f"\n{df.iloc[index]}")
+    logger.debug(f"Early stopping at {len(df)-1}th epoch")
 
-    y_train = np_utils.to_categorical(y_train.values.reshape(len(y_train)), 6)
-    y_test = np_utils.to_categorical(y_test.values.reshape(len(y_test)), 6)
+    # ベストのモデルをロードする
+    model = keras.models.load_model(f"{LOG_DIR}/trained_model_fold{fold_id}.h5")
 
-    return X_train, X_test, y_train, y_test, label2activity_dict, activity2label_dict
+    pred_train = model.predict(X_train)
+    pred_valid = model.predict(X_valid)
+    pred_test = model.predict(X_test)
 
-
-X_train, X_test, y_train, y_test, label2activity_dict, activity2label_dict = load_data()
-
-for c, mode in zip([Counter(y_train.argmax(axis=1)), Counter(y_test.argmax(axis=1))], ['train', 'test']):
-    print(f'{mode} samples')
-    logging.debug(f'{mode} samples')
-    for label_id in range(6):
-        print(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]} ({c[label_id]/len(c):.04})', end='\t')
-        logging.debug(f'{label2activity_dict[label_id]} ({label_id}): {c[label_id]} ({c[label_id]/len(c):.04})')
-    print()
+    K.clear_session()
+    return pred_train, pred_valid, pred_test, model
 
 
-def create_model(window_size:int=128, output_dim:int=6) -> Model:
+def create_baseline(
+    input_shape: Tuple[int, int, int] = (128, 6, 1), output_dim: int = 6, lr: float = 0.001
+) -> Any:
     model = Sequential()
-    model.add(Conv2D(70, kernel_size=(7, 1), input_shape=(window_size, 6, 1)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 1)))
-    model.add(Dropout(0.2, seed=0))
-    model.add(Conv2D(70, kernel_size=(7, 1)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 1)))
-    model.add(Dropout(0.3, seed=1))
-    model.add(Conv2D(30, kernel_size=(5, 1)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 1)))
-    model.add(Dropout(0.3, seed=2))
-    model.add(Conv2D(30, kernel_size=(3, 1)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 1))) 
-    model.add(Dropout(0.4, seed=3))
+    model.add(Conv2D(64, kernel_size=(5, 1), input_shape=input_shape))
+    model.add(Activation("relu"))
+    model.add(Conv2D(64, kernel_size=(5, 1)))
+    model.add(Activation("relu"))
+    model.add(Conv2D(64, kernel_size=(5, 1)))
+    model.add(Activation("relu"))
+    model.add(Conv2D(64, kernel_size=(5, 1)))
+    model.add(Activation("relu"))
     model.add(Flatten())
-    model.add(Dense(500))
-    model.add(Activation('relu'))
-    model.add(Dropout(0.5, seed=4))
+    model.add(Dense(128))
+    model.add(Activation("relu"))
+    model.add(Dropout(0.5, seed=0))
+    model.add(Dense(128))
+    model.add(Activation("relu"))
+    model.add(Dropout(0.5, seed=1))
     model.add(Dense(output_dim))
-    model.add(Activation('softmax'))
+    model.add(Activation("softmax"))
     model.compile(
-        loss=keras.losses.categorical_crossentropy, 
-        optimizer=keras.optimizers.Adam(lr=0.0003),
-        metrics=['accuracy']
-        )
+        loss="categorical_crossentropy", optimizer=optimizers.Adam(lr=lr), metrics=["accuracy"]
+    )
     return model
 
 
-X_tr, X_val, y_tr, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=71, shuffle=True, stratify=y_train)
-
-print(f'X_train:{X_tr.shape} X_valid:{X_val.shape} X_test:{X_test.shape}')
-print(f'y_train:{y_tr.shape} y_valid:{y_val.shape} y_test:{y_test.shape}')
-logging.debug(f'X_train:{X_tr.shape} X_valid:{X_val.shape} X_test:{X_test.shape}')
-logging.debug(f'y_train:{y_tr.shape} y_valid:{y_val.shape} y_test:{y_test.shape}')
-
-# callbacks
-early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=15, verbose=0, mode='min')
-fn = f'../logs/{EXEC_TIME}-history/trained_model.h5'
-model_checkpoint = ModelCheckpoint(filepath=fn, save_best_only=True)
-reduce_lr_on_plateau = ReduceLROnPlateau(factor=0.2, patience=5, verbose=1, min_lr=0.000001)
-callbacks = [early_stopping, model_checkpoint, reduce_lr_on_plateau]
-
-model = create_model()
-
-# Save plot of model architecture
-plot_model(model, to_file=f'../logs/{EXEC_TIME}-history/model.png', show_shapes=True)
-
-fit = model.fit(
-    X_tr, y_tr, 
-    batch_size=32, 
-    epochs=2000, 
-    verbose=2, 
-    validation_data=(X_val, y_val),
-    callbacks=callbacks)
-
-# Plot learning curve
-fig, (axL, axR) = plt.subplots(ncols=2, figsize=(10, 4))
-axL.plot(fit.history['loss'], label="loss for training")
-axL.plot(fit.history['val_loss'], label="loss for validation")
-axL.set_title('model loss')
-axL.set_xlabel('epoch')
-axL.set_ylabel('loss')
-axL.legend(loc='upper right')
-
-axR.plot(fit.history['acc'], label="accuracy for training")
-axR.plot(fit.history['val_acc'], label="accuracy for validation")
-axR.set_title('model accuracy')
-axR.set_xlabel('epoch')
-axR.set_ylabel('accuracy')
-axR.legend(loc='upper right')
-
-fig.savefig(f'../logs/{EXEC_TIME}-history/history.png')
-plt.close()
-
-# Logging training history of every 10 epochs
-df = pd.DataFrame(fit.history)
-index = np.arange(0, len(df), 10)
-logging.debug(f'\n{df.iloc[index]}')
-logging.debug(f'Early stopping at {len(df)-1}th epoch')
-
-# ベストのモデルをロードする
-model = load_model(fn)
-
-
-for X, y, mode in zip([X_tr, X_val, X_test], [y_tr, y_val, y_test], ['train', 'valid', 'test']):
-    logloss, acc = model.evaluate(X, y)
-    pred = model.predict(X).argmax(axis=1)
-    y = y.argmax(axis=1)
-    prec = precision_score(y, pred, average='macro')
-    recall = recall_score(y, pred, average='macro')
-    f1 = f1_score(y, pred, average='macro')
-
-    logging.debug(mode)
-    logging.debug(f'logloss {logloss}')
-    logging.debug(f'accuracy {acc}')
-    logging.debug(f'precision {prec}')
-    logging.debug(f'recall {recall}')
-    logging.debug(f'f1 {f1}')
-
-    logging.debug(f'confusion matrix\n{np.array2string(confusion_matrix(y, pred))}')
-    
+def create_callback(model: Any, path_chpt: str) -> List[Any]:
+    """callbackの設定
+    Args:
+        model (tensorflow.python.keras.engine.sequential.Sequential): CNNモデル
+        path_f1_history (str): f1の経過を出力するパス
+    Returns:
+        callbacks (List[Any]): Callbackのリスト
+    """
+    callbacks = []
+    callbacks.append(
+        EarlyStopping(monitor="val_loss", min_delta=0, patience=30, verbose=1, mode="min")
+    )
+    callbacks.append(ModelCheckpoint(filepath=path_chpt, save_best_only=True))
+    # callbacks.append(ReduceLROnPlateau(factor=0.2, patience=10, verbose=1, min_lr=0.00001))
+    return callbacks
