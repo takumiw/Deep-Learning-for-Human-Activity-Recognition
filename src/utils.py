@@ -162,7 +162,7 @@ def plot_model(model: Any, path: str) -> None:
         keras.utils.plot_model(model, to_file=path, show_shapes=True)
 
 
-def plot_learning_history(fit: Any, path: str = "history.png") -> None:
+def plot_learning_history(fit: Any, metric: str = "accuracy", path: str = "history.png") -> None:
     """Plot learning curve
     Args:
         fit (Any): History object
@@ -176,11 +176,11 @@ def plot_learning_history(fit: Any, path: str = "history.png") -> None:
     axL.set_ylabel("loss")
     axL.legend(loc="upper right")
 
-    axR.plot(fit.history["accuracy"], label="train")
-    axR.plot(fit.history["val_accuracy"], label="validation")
-    axR.set_title("Accuracy")
+    axR.plot(fit.history[metric], label="train")
+    axR.plot(fit.history[f"val_{metric}"], label="validation")
+    axR.set_title(metric.capitalize())
     axR.set_xlabel("epoch")
-    axR.set_ylabel("accuracy")
+    axR.set_ylabel(metric)
     axR.legend(loc="upper right")
 
     fig.savefig(path)
