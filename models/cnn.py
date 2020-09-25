@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten, Conv2D
 from tensorflow.keras import optimizers
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
@@ -47,13 +47,13 @@ def train_and_predict(
     y_valid = keras.utils.to_categorical(y_valid, 6)
     y_test = keras.utils.to_categorical(y_test, 6)
     """
-    model = create_baseline(
+    model = build_baseline(
         input_shape=X_train.shape[1:], output_dim=y_train.shape[1], lr=cnn_params["lr"]
     )
     plot_model(model, path=f"{LOG_DIR}/model.png")
 
     # 各種callbackの設定
-    callbacks = create_callback(model=model, path_chpt=f"{LOG_DIR}/trained_model_fold{fold_id}.h5")
+    callbacks = build_baseline(model=model, path_chpt=f"{LOG_DIR}/trained_model_fold{fold_id}.h5")
 
     fit = model.fit(
         X_train,
@@ -66,7 +66,7 @@ def train_and_predict(
     )
 
     # 学習曲線をプロットする
-    plot_learning_history(fit=fit, path=f"{LOG_DIR}/hitsoty_fold{fold_id}.png")
+    plot_learning_history(fit=fit, path=f"{LOG_DIR}/history_fold{fold_id}.png")
 
     # Logging training history every 10 epochs
     df = pd.DataFrame(fit.history)
@@ -85,7 +85,7 @@ def train_and_predict(
     return pred_train, pred_valid, pred_test, model
 
 
-def create_baseline(
+def build_baseline(
     input_shape: Tuple[int, int, int] = (128, 6, 1), output_dim: int = 6, lr: float = 0.001
 ) -> Any:
     model = Sequential()
@@ -112,13 +112,13 @@ def create_baseline(
     return model
 
 
-def create_callback(model: Any, path_chpt: str) -> List[Any]:
-    """callbackの設定
+def create_callback(model: Model, path_chpt: str) -> List[Any]:
+    """callback settinngs
     Args:
-        model (tensorflow.python.keras.engine.sequential.Sequential): CNNモデル
-        path_f1_history (str): f1の経過を出力するパス
+        model (Model)
+        path_chpt (str): path to save checkpoint
     Returns:
-        callbacks (List[Any]): Callbackのリスト
+        callbacks (List[Any]): List of Callback
     """
     callbacks = []
     callbacks.append(
