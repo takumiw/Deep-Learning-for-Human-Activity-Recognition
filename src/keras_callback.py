@@ -79,7 +79,7 @@ class PeriodicLogger(Callback):
 
 
 def create_callback(
-    model: Model, path_chpt: str, verbose: int = 10, epochs: Optional[int] = None
+    model: Model, path_chpt: str, patience: int = 30, metric: str = "accuracy", verbose: int = 10, epochs: Optional[int] = None
 ) -> List[Any]:
     """callback settinngs
     Args:
@@ -90,8 +90,8 @@ def create_callback(
     """
     callbacks = []
     callbacks.append(
-        EarlyStopping(monitor="val_loss", min_delta=0, patience=30, verbose=1, mode="min")
+        EarlyStopping(monitor="val_loss", min_delta=0, patience=patience, verbose=1, mode="min")
     )
     callbacks.append(ModelCheckpoint(filepath=path_chpt, save_best_only=True))
-    callbacks.append(PeriodicLogger(verbose=verbose, epochs=epochs))
+    callbacks.append(PeriodicLogger(metric=metric, verbose=verbose, epochs=epochs))
     return callbacks
