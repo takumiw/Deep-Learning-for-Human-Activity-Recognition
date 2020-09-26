@@ -3,9 +3,10 @@
 
 This repository contains keras (tensorflow.keras) implementation of Convolutional Neural Network (CNN) [1], Deep Convolutional LSTM (DeepConvLSTM) [1], Stacked Denoising AutoEncoder (SDAE) [2], and Light GBM for human activity recognition (HAR) using smartphones sensor dataset, *UCI smartphone* [3].
 
-**Table 1.** The summary of the results amongst five methods on UCI smartphone dataset.
+**Table 1.** The summary of the results amongst five methods on UCI smartphone dataset.  
+
 | Method | Accuracy | Precision | Recall | F1-score |
-| --- | --- | --- | --- | --- | --- |
+| --- | :---: | :---: | :---: | :---: | :---: |
 | LightGBM | **96.33** | **96.58** | **96.37** |  **96.43** |
 | CNN [1] | 95.29 | 95.46 | 95.50 |  95.47 |
 | DeepConvLSTM [1] | 95.66 | 95.71 | 95.84 | 95.72 |
