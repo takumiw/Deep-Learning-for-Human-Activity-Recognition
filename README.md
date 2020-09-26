@@ -31,11 +31,12 @@ Then run code by:
 
 # Dataset
 The dataset includes types of movement amongst three static postures (*STANDING*, *SITTING*, *LYING*) and three dynamic activities (*WALKING*, *WALKING DOWNSTAIRS*, *WALKING UPSTAIRS*). 
+
 ![](https://img.youtube.com/vi/XOEN9W05_4A/0.jpg)  
 [Watch video](https://www.youtube.com/watch?v=XOEN9W05_4A)  
 [Download dataset](http://archive.ics.uci.edu/ml/datasets/Smartphone-Based+Recognition+of+Human+Activities+and+Postural+Transitions)
 
-# Results
+# Methods
 ## Feature engineering + LightGBM
 To represent raw sensor signals as a feature vector, 621 features are created by preprocessing, fast Fourier transform (FFT), statistics, etc. ([run_generate_features.py](https://github.com/takumiw/Deep-Learning-for-Human-Activity-Recognition/blob/master/run_generate_features.py).)  
 The 621 features of the training dataset were trained on a LightGBM classifier by 5-fold cross-validation, and evaluated on the test dataset.
