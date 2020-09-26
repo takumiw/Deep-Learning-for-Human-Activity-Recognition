@@ -25,11 +25,17 @@
         "lr": 0.001,
         "verbose": 0
     },
+    "mlp_params": {
+        "batch_size": 128,
+        "epochs": 10000,
+        "lr": 0.001,
+        "verbose": 0
+    },
     "deep_conv_lstm_params": {
         "batch_size": 128,
         "epochs": 10000,
         "lr": 0.001,
-        "verbose": 2
+        "verbose": 0
     },
     "sdae_params": {
         "pretrain_batch_size": 128,
@@ -37,8 +43,8 @@
         "pretrain_epochs": 10000,
         "finetune_epochs": 10000,
         "pretrain_lr": 0.001,
-        "finetune_lr": 0.0001,
-        "verbose": 2,
+        "finetune_lr": 0.001,
+        "verbose": 0,
         "freeze_layers": []
     }
 }
