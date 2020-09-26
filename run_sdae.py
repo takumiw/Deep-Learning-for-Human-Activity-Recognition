@@ -16,17 +16,18 @@ from sklearn.metrics import (
     recall_score,
 )
 from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import MinMaxScaler
 from tensorflow import keras
 
 from src.data_prep.load import load_raw_data
 from src.utils import check_class_balance, round
 from src.utils import plot_feature_importance, plot_shap_summary, plot_confusion_matrix
-from models.deep_conv_lstm import train_and_predict
+from models.sdae import SDAE
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))  # Path to current directory
 
 # Logging settings
-EXEC_TIME = "deep-conv-lstm-" + datetime.now().strftime("%Y%m%d-%H%M%S")
+EXEC_TIME = "sdae-" + datetime.now().strftime("%Y%m%d-%H%M%S")
 LOG_DIR = os.path.join(CUR_DIR, f"logs/{EXEC_TIME}")
 os.makedirs(LOG_DIR, exist_ok=True)  # Create log directory
 
@@ -41,7 +42,9 @@ logger = getLogger(__name__)
 logger.setLevel(DEBUG)
 logger.debug(f"{LOG_DIR}/{EXEC_TIME}.log")
 
-X_train, X_test, y_train, y_test, label2act, act2label = load_raw_data()
+X_train, X_test, y_train, y_test, label2act, act2label = load_raw_data(scaler="minmax")
+X_train = X_train.reshape(X_train.shape[0], X_train.shape[1] * X_train.shape[2])
+X_test = X_test.reshape(X_test.shape[0], X_test.shape[1] * X_test.shape[2])
 logger.debug(f"{X_train.shape=} {X_test.shape=}")
 logger.debug(f"{y_train.shape=} {y_test.shape=}")
 
@@ -64,8 +67,8 @@ scores: Dict[str, Dict[str, List[Any]]] = {
 }
 # Load hyper-parameters
 with open(os.path.join(CUR_DIR, "configs/default.json"), "r") as f:
-    dcl_params = json.load(f)["deep_conv_lstm_params"]
-    logger.debug(f"{dcl_params=}")
+    sdae_params = json.load(f)["sdae_params"]
+    logger.debug(f"{sdae_params=}")
 
 y_test = keras.utils.to_categorical(y_test, 6)
 
@@ -74,23 +77,28 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
     X_val = X_train[valid_index, :]
     y_tr = y_train[train_index]
     y_val = y_train[valid_index]
-    
+
     y_tr = keras.utils.to_categorical(y_tr, 6)
     y_val = keras.utils.to_categorical(y_val, 6)
 
     logger.debug(f"{X_tr.shape=} {X_val.shape=} {X_test.shape=}")
     logger.debug(f"{y_tr.shape=} {y_val.shape=} {y_test.shape=}")
 
-    pred_tr, pred_val, pred_test, model = train_and_predict(
-        LOG_DIR, fold_id, X_tr, X_val, X_test, y_tr, y_val, dcl_params
-    )
+    sdae = SDAE(LOG_DIR=LOG_DIR, fold_id=fold_id, **sdae_params)
+    pred_tr, pred_val = sdae.train_1st_level(X_tr, X_val)
+    _, _ = sdae.train_2nd_level(pred_tr, pred_val)
+    pred_tr, pred_val, pred_test, model = sdae.finetune(X_tr, X_val, X_test, y_tr, y_val)
+
     models.append(model)
 
     valid_preds[valid_index] = pred_val
     test_preds[fold_id] = pred_test
 
     for pred, X, y, mode in zip(
-        [pred_tr, pred_val, pred_test], [X_tr, X_val, X_test], [y_tr, y_val, y_test], ["train", "valid", "test"]
+        [pred_tr, pred_val, pred_test],
+        [X_tr, X_val, X_test],
+        [y_tr, y_val, y_test],
+        ["train", "valid", "test"],
     ):
         loss, acc = model.evaluate(X, y, verbose=0)
         pred = pred.argmax(axis=1)

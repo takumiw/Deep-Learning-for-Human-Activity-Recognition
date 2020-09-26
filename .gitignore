@@ -182,3 +182,4 @@ data
 logs/*
 features
 .venv/
+notebooks

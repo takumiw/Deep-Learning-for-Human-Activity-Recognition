@@ -21,12 +21,12 @@ from tensorflow import keras
 from src.data_prep.load import load_raw_data
 from src.utils import check_class_balance, round
 from src.utils import plot_feature_importance, plot_shap_summary, plot_confusion_matrix
-from models.deep_conv_lstm import train_and_predict
+from models.mlp import train_and_predict
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))  # Path to current directory
 
 # Logging settings
-EXEC_TIME = "deep-conv-lstm-" + datetime.now().strftime("%Y%m%d-%H%M%S")
+EXEC_TIME = "mlp-" + datetime.now().strftime("%Y%m%d-%H%M%S")
 LOG_DIR = os.path.join(CUR_DIR, f"logs/{EXEC_TIME}")
 os.makedirs(LOG_DIR, exist_ok=True)  # Create log directory
 
@@ -64,8 +64,8 @@ scores: Dict[str, Dict[str, List[Any]]] = {
 }
 # Load hyper-parameters
 with open(os.path.join(CUR_DIR, "configs/default.json"), "r") as f:
-    dcl_params = json.load(f)["deep_conv_lstm_params"]
-    logger.debug(f"{dcl_params=}")
+    mlp_params = json.load(f)["mlp_params"]
+    logger.debug(f"{mlp_params=}")
 
 y_test = keras.utils.to_categorical(y_test, 6)
 
@@ -82,7 +82,7 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
     logger.debug(f"{y_tr.shape=} {y_val.shape=} {y_test.shape=}")
 
     pred_tr, pred_val, pred_test, model = train_and_predict(
-        LOG_DIR, fold_id, X_tr, X_val, X_test, y_tr, y_val, dcl_params
+        LOG_DIR, fold_id, X_tr, X_val, X_test, y_tr, y_val, mlp_params
     )
     models.append(model)
 

@@ -1,4 +1,4 @@
-"""Functions for training Deep Convolutional LSTM (DeepConvLSTM)"""
+"""Functions for training Multi Layer Perceptron (MLP)"""
 import os
 from typing import Any, Dict, List, Tuple
 
@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Activation, Dropout, Conv2D, LSTM, Reshape
+from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten
 from tensorflow.keras import optimizers
 from tensorflow.keras import backend as K
 
@@ -24,9 +24,9 @@ def train_and_predict(
     X_test: np.ndarray,
     y_train: np.ndarray,
     y_valid: np.ndarray,
-    dcl_params: Dict[str, Any],
+    mlp_params: Dict[str, Any],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Model]:
-    """Train DeepConvLSTM
+    """Train MLP
     Args:
         X_train, X_valid, X_test: input signals of shape (num_samples, window_size, num_channels, 1)
         y_train, y_valid, y_test: onehot-encoded labels
@@ -37,7 +37,7 @@ def train_and_predict(
         model: trained best model
     """
     model = build_model(
-        input_shape=X_train.shape[1:], output_dim=y_train.shape[1], lr=dcl_params["lr"]
+        input_shape=X_train.shape[1:], output_dim=y_train.shape[1], lr=mlp_params["lr"]
     )
     plot_model(model, path=f"{LOG_DIR}/model.png")
 
@@ -45,15 +45,15 @@ def train_and_predict(
         model=model,
         path_chpt=f"{LOG_DIR}/trained_model_fold{fold_id}.h5",
         verbose=10,
-        epochs=dcl_params["epochs"],
+        epochs=mlp_params["epochs"],
     )
 
     fit = model.fit(
         X_train,
         y_train,
-        batch_size=dcl_params["batch_size"],
-        epochs=dcl_params["epochs"],
-        verbose=dcl_params["verbose"],
+        batch_size=mlp_params["batch_size"],
+        epochs=mlp_params["epochs"],
+        verbose=mlp_params["verbose"],
         validation_data=(X_valid, y_valid),
         callbacks=callbacks,
     )
@@ -73,18 +73,12 @@ def build_model(
     input_shape: Tuple[int, int, int] = (128, 6, 1), output_dim: int = 6, lr: float = 0.001
 ) -> Model:
     model = Sequential()
-    model.add(Conv2D(64, kernel_size=(5, 1), input_shape=input_shape))
+    model.add(Flatten(input_shape=input_shape))
+    model.add(Dense(256))
     model.add(Activation("relu"))
-    model.add(Conv2D(64, kernel_size=(5, 1)))
-    model.add(Activation("relu"))
-    model.add(Conv2D(64, kernel_size=(5, 1)))
-    model.add(Activation("relu"))
-    model.add(Conv2D(64, kernel_size=(5, 1)))
-    model.add(Activation("relu"))
-    model.add(Reshape((112, 6 * 64)))
-    model.add(LSTM(128, activation="tanh", return_sequences=True))
     model.add(Dropout(0.5, seed=0))
-    model.add(LSTM(128, activation="tanh"))
+    model.add(Dense(128))
+    model.add(Activation("relu"))
     model.add(Dropout(0.5, seed=1))
     model.add(Dense(output_dim))
     model.add(Activation("softmax"))

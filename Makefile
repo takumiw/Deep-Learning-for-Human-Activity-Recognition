@@ -11,7 +11,6 @@ build-gpu: # Build docker image
 	echo "Building Dockerfile"
 	docker build -t ${IMAGE_NAME} . -f Dockerfile_gpu
 
-
 .PHONY: start
 start: build # Start docker container
 	echo "Starting container ${IMAGE_NAME}"
