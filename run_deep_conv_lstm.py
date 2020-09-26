@@ -67,7 +67,6 @@ with open(os.path.join(CUR_DIR, "configs/default.json"), "r") as f:
     dcl_params = json.load(f)["deep_conv_lstm_params"]
     logger.debug(f"{dcl_params=}")
 
-#X_test = X_test.reshape(*X_test.shape, 1)  # (x, 128, 6) -> (x, 128, 6, 1)
 y_test = keras.utils.to_categorical(y_test, 6)
 
 for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train)):
@@ -75,9 +74,6 @@ for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train, y_train))
     X_val = X_train[valid_index, :]
     y_tr = y_train[train_index]
     y_val = y_train[valid_index]
-
-    #X_tr = X_tr.reshape(*X_tr.shape, 1)  # (x, 128, 6) -> (x, 128, 6, 1)
-    #X_val = X_val.reshape(*X_val.shape, 1)  # (x, 128, 6) -> (x, 128, 6, 1)
     
     y_tr = keras.utils.to_categorical(y_tr, 6)
     y_val = keras.utils.to_categorical(y_val, 6)
