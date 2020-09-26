@@ -6,7 +6,7 @@ This repository contains keras (tensorflow.keras) implementation of Convolutiona
 **Table 1.** The summary of the results amongst five methods on UCI smartphone dataset.
 | Method | Accuracy | Precision | Recall | F1-score |
 | --- | --- | --- | --- | --- | --- |
-| LightGBM | 96.33 | 96.58 | 96.37|  96.43 |
+| LightGBM | **96.33** | **96.58** | **96.37** |  **96.43** |
 | CNN [1] | 95.29 | 95.46 | 95.50 |  95.47 |
 | DeepConvLSTM [1] | 95.66 | 95.71 | 95.84 | 95.72 |
 | SDAE [2] | 78.28 | 78.83 | 78.47 | 78.25 |
@@ -45,9 +45,12 @@ The preprocessed raw sensor signals are classified CNN. The CNN architecture, wh
 The preprocessed raw sensor signals are classified DeepConvLSTM. The fully connected layers of CNN are replaced with LSTM layers. The DeepConvLSTM architecture follows the study [1].
 
 ## Stacked Denoising AutoEncoder (SDAE)
-The preprocessed raw sensor signals are trained with Stacked Denoising AutoEncoder, softmax layer is superimposed on top of Encoder, then whole network is fine-tuned for the target classification task. I used as same settings to the reference [2] as possible, but could not reproduce the result in the paper.
+The preprocessed raw sensor signals are trained with SDAE, softmax layer is superimposed on top of Encoder, then whole network is fine-tuned for the target classification task. I used as same settings to the reference [2] as possible, but could not reproduce the result in the paper.
 
-## Reference
+## Multi Layer Perceptron (MLP)
+The preprocessed raw sensor signals are trained with MLP, which consists of two hidden layers.
+
+# Reference
 [1] Ordóñez, F. J., & Roggen, D. (2016). Deep convolutional and lstm recurrent neural networks for multimodal wearable activity recognition. *Sensors*, *16*(1), 115.  
 [2] Gao, X., Luo, H., Wang, Q., Zhao, F., Ye, L., & Zhang, Y. (2019). A human activity recognition algorithm based on stacking denoising autoencoder and lightGBM. *Sensors,* *19*(4), 947.
 [3] Reyes-Ortiz, J. L., Oneto, L., Samà, A., Parra, X., & Anguita, D. (2016). Transition-aware human activity recognition using smartphones. *Neurocomputing*, *171*, 754-767.
