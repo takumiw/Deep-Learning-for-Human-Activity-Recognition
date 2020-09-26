@@ -6,12 +6,13 @@ This repository contains keras (tensorflow.keras) implementation of Convolutiona
 **Table 1.** The summary of the results amongst five methods on UCI smartphone dataset.  
 
 | Method | Accuracy | Precision | Recall | F1-score |
-| --- | :---: | :---: | :---: | :---: | :---: |
+| --- | :---: | :---: | :---: | :---: |
 | LightGBM | **96.33** | **96.58** | **96.37** |  **96.43** |
 | CNN [1] | 95.29 | 95.46 | 95.50 |  95.47 |
 | DeepConvLSTM [1] | 95.66 | 95.71 | 95.84 | 95.72 |
 | SDAE [2] | 78.28 | 78.83 | 78.47 | 78.25 |
 | MLP | 93.81 | 93.97 | 94.04 |  93.85 |
+
 
 # Setup
 Dockerfile creates a virtual environment with Keras (tensorflow 2.3) and Python 3.8.
