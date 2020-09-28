@@ -20,7 +20,7 @@ If you wan to use this implementation locally within a docker container:
 ```bash
 $ git clone git@github.com:takumiw/Deep-Learning-for-Human-Activity-Recognition.git
 $ cd Deep-Learning-for-Human-Activity-Recognition
-$ make make start-gpu
+$ make start-gpu
 # poetry install
 ```
 
