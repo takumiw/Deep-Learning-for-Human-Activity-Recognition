@@ -8,7 +8,7 @@ authors = ["takumiw"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-tensorflow-gpu = "2.3"
+tensorflow-gpu = "2.6.4"
 pandas = "^1.1.2"
 matplotlib = "^3.3.2"
 seaborn = "^0.11.0"
